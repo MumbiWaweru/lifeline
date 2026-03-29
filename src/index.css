@@ -1,0 +1,163 @@
+:root {
+  --color-primary: #3c3489;
+  --color-primary-light: #cfcbea;
+  --color-primary-border: #afa9ec;
+  
+  --color-admin: #444441;
+  --color-admin-light: #d3d1c7;
+  --color-admin-border: #b4b2a9;
+  
+  --color-quick-exit: #712b13;
+  --color-quick-exit-light: #f5c4b3;
+  --color-quick-exit-border: #f0997b;
+  
+  --color-language: #085041;
+  --color-language-light: #9fe1cb;
+  --color-language-border: #5dcaa5;
+  
+  --color-risk-low: #2d6a4f;
+  --color-risk-medium: #d97706;
+  --color-risk-high: #dc2626;
+  
+  --color-bg: #1a1a1a;
+  --color-text: #cec6d6;
+  --color-text-muted: #9ca3af;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Quick Exit Button Styles */
+.quick-exit-btn {
+  background-color: var(--color-quick-exit);
+  border: 1px solid var(--color-quick-exit-border);
+  color: var(--color-quick-exit-light);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+}
+
+.quick-exit-btn:hover {
+  background-color: #8b3a1f;
+  transform: translateY(-2px);
+}
+
+/* Language Toggle Styles */
+.lang-toggle {
+  background-color: var(--color-language);
+  border: 1px solid var(--color-language-border);
+  color: var(--color-language-light);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.lang-toggle:hover {
+  background-color: #0a6b55;
+}
+
+/* Risk Indicator Styles */
+.risk-indicator {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.risk-low {
+  background-color: var(--color-risk-low);
+  color: #86efac;
+}
+
+.risk-medium {
+  background-color: var(--color-risk-medium);
+  color: #fcd34d;
+}
+
+.risk-high {
+  background-color: var(--color-risk-high);
+  color: #fca5a5;
+}
+
+/* Card Styles */
+.card-custom {
+  background-color: rgba(60, 52, 137, 0.2);
+  border: 1px solid var(--color-primary-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.card-admin {
+  background-color: rgba(68, 68, 65, 0.3);
+  border: 1px solid var(--color-admin-border);
+}
+
+/* Button Styles */
+.btn-primary-custom {
+  background-color: var(--color-primary);
+  border: 1px solid var(--color-primary-border);
+  color: var(--color-primary-light);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary-custom:hover {
+  background-color: #4c44a9;
+  color: white;
+}
+
+/* Chat bubble styles */
+.chat-bubble {
+  max-width: 80%;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.chat-bubble-user {
+  background-color: var(--color-primary);
+  margin-left: auto;
+}
+
+.chat-bubble-bot {
+  background-color: rgba(255, 255, 255, 0.1);
+  margin-right: auto;
+}
+
+/* Global header styles */
+.global-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 1rem;
+  background-color: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+/* Main content wrapper */
+.main-content {
+  padding-top: 80px;
+  min-height: 100vh;
+}
