@@ -13,52 +13,54 @@ function AnonymousEntry() {
     <div className="container">
       <div className="row justify-content-center align-items-center min-vh-100">
         <div className="col-md-8 col-lg-6">
-          <div className="card-custom text-center">
-            <div className="mb-4">
-              <span style={{ fontSize: '4rem' }}>🙋</span>
-            </div>
+          <div className="card-custom anonymous-card">
+            <span className="anonymous-icon">🙋</span>
             
-            <h2 className="mb-3" style={{ color: 'var(--color-primary-light)' }}>
+            <h2 className="mb-3 text-gradient">
               Anonymous & Confidential
             </h2>
             
-            <p className="text-muted mb-4">
+            <p className="mb-4" style={{ color: 'var(--color-text-secondary)' }}>
               You don't need to create an account or provide any personal information.
               Your conversation is completely anonymous and will not be stored.
             </p>
 
-            <div className="row g-3 mb-4">
-              <div className="col-6">
-                <div className="p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                  <span className="d-block mb-2">🔒</span>
-                  <small>No Account Required</small>
-                </div>
+            <div className="feature-grid">
+              <div className="feature-item">
+                <span className="feature-icon">🔒</span>
+                <div className="feature-text">No Account Required</div>
               </div>
-              <div className="col-6">
-                <div className="p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                  <span className="d-block mb-2">👤</span>
-                  <small>100% Anonymous</small>
-                </div>
+              <div className="feature-item">
+                <span className="feature-icon">👤</span>
+                <div className="feature-text">100% Anonymous</div>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">🛡️</span>
+                <div className="feature-text">Encrypted</div>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">💬</span>
+                <div className="feature-text">Private Chat</div>
               </div>
             </div>
 
-            <div className="d-grid gap-2">
+            <div className="d-grid gap-3 mt-4">
               <button
-                className="btn btn-primary-custom btn-lg"
+                className="btn-primary-custom btn-lg w-100"
                 onClick={handleContinue}
               >
-                Continue to Chat
+                Continue to Chat →
               </button>
               
               <button
                 className="btn btn-outline-secondary btn-sm"
                 onClick={() => navigate('/')}
                 style={{ 
-                  borderColor: 'var(--color-primary-border)',
-                  color: 'var(--color-primary-light)'
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-secondary)'
                 }}
               >
-                ← Back
+                ← Back to Home
               </button>
             </div>
           </div>

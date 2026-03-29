@@ -11,9 +11,7 @@ function AdminLogin() {
   const handleLogin = (e) => {
     e.preventDefault()
     
-    // Simple password check (replace with actual auth from backend)
     if (password === 'admin123') {
-      // Store auth token
       localStorage.setItem('adminAuth', 'true')
       navigate('/admin/dashboard')
     } else {
@@ -25,48 +23,42 @@ function AdminLogin() {
     <div className="container">
       <div className="row justify-content-center align-items-center min-vh-100">
         <div className="col-md-6 col-lg-4">
-          <div className="card-custom card-admin">
+          <div className="card-custom">
             <div className="text-center mb-4">
-              <span style={{ fontSize: '3rem' }}>🔐</span>
+              <span style={{ fontSize: '4rem' }}>🔐</span>
             </div>
             
-            <h2 className="text-center mb-4" style={{ color: 'var(--color-admin-light)' }}>
+            <h2 className="text-center mb-4 text-gradient">
               Admin Access
             </h2>
 
             <form onSubmit={handleLogin}>
               <div className="mb-3">
-                <label className="form-label text-muted">Password</label>
+                <label className="form-label">Password</label>
                 <input
                   type="password"
                   className="form-control"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter admin password"
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    border: '1px solid var(--color-admin-border)',
-                    color: 'var(--color-text)'
-                  }}
                 />
               </div>
 
               {error && (
                 <div className="alert alert-danger" role="alert">
-                  {error}
+                  ⚠️ {error}
                 </div>
               )}
 
               <div className="d-grid gap-2">
                 <button
                   type="submit"
-                  className="btn btn-primary-custom"
+                  className="btn-primary-custom w-100"
                   style={{
-                    backgroundColor: 'var(--color-admin)',
-                    borderColor: 'var(--color-admin-border)'
+                    background: 'var(--gradient-admin)',
                   }}
                 >
-                  Login
+                  Login →
                 </button>
                 
                 <button
@@ -74,8 +66,8 @@ function AdminLogin() {
                   className="btn btn-outline-secondary btn-sm"
                   onClick={() => navigate('/')}
                   style={{ 
-                    borderColor: 'var(--color-admin-border)',
-                    color: 'var(--color-admin-light)'
+                    borderColor: 'var(--border-color)',
+                    color: 'var(--color-text-secondary)'
                   }}
                 >
                   ← Back to Home
@@ -84,8 +76,8 @@ function AdminLogin() {
             </form>
 
             <div className="mt-4 text-center">
-              <small className="text-muted">
-                Authorized personnel only. All access is logged.
+              <small style={{ color: 'var(--color-text-muted)' }}>
+                🔒 Authorized personnel only. All access is logged.
               </small>
             </div>
           </div>

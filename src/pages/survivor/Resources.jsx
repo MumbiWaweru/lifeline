@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { resourcesApi } from '../../services/api'
 
-// Sample resources data (fallback if API unavailable)
 const sampleResources = {
   hotlines: [
     { name: 'GBV Recovery Centre', phone: '0800 123 4567', available: '24/7' },
@@ -34,7 +33,6 @@ function Resources() {
   const [apiResources, setApiResources] = useState([])
   const [loading, setLoading] = useState(false)
 
-  // Fetch resources from API when location changes
   useEffect(() => {
     const fetchResources = async () => {
       if (locationFilter === 'all') return
@@ -54,25 +52,24 @@ function Resources() {
   }, [locationFilter, language])
 
   const tabs = [
-    { id: 'hotlines', label: t('resources.hotlines') || 'Hotlines', icon: '📞' },
-    { id: 'shelters', label: t('resources.shelters') || 'Shelters', icon: '🏠' },
-    { id: 'organizations', label: t('resources.organizations') || 'Organizations', icon: '🏢' },
-    { id: 'police', label: t('resources.police') || 'Police', icon: '👮' },
+    { id: 'hotlines', label: 'Hotlines', icon: '📞' },
+    { id: 'shelters', label: 'Shelters', icon: '🏠' },
+    { id: 'organizations', label: 'Organizations', icon: '🏢' },
+    { id: 'police', label: 'Police', icon: '👮' },
   ]
 
   const renderContent = () => {
-    // Use API resources if available, otherwise use sample data
     const resources = apiResources.length > 0 
       ? groupResourcesByType(apiResources)
       : sampleResources[activeTab] || []
     
     if (loading) {
       return (
-        <div className="text-center py-4">
-          <div className="spinner-border text-primary" role="status">
+        <div className="text-center py-5">
+          <div className="spinner-border" role="status" style={{ color: 'var(--color-primary)' }}>
             <span className="visually-hidden">Loading...</span>
           </div>
-          <p className="mt-2 text-muted">Loading resources...</p>
+          <p className="mt-3" style={{ color: 'var(--color-text-secondary)' }}>Loading resources...</p>
         </div>
       )
     }
@@ -81,50 +78,65 @@ function Resources() {
       <div className="row g-3">
         {resources.map((resource, index) => (
           <div key={index} className="col-12">
-            <div 
-              className="p-3" 
-              style={{ 
-                backgroundColor: 'rgba(255,255,255,0.05)', 
-                borderRadius: '8px',
-                border: '1px solid var(--color-primary-border)'
-              }}
-            >
+            <div className="resource-card">
               <div className="d-flex justify-content-between align-items-start">
-                <div>
-                  <h6 className="mb-1" style={{ color: 'var(--color-primary-light)' }}>
+                <div className="flex-grow-1">
+                  <h6 className="resource-name">
                     {resource.name}
                   </h6>
-                  {resource.number && (
-                    <p className="mb-1 text-muted">
+                  {resource.phone && (
+                    <p className="resource-info">
                       <a 
-                        href={`tel:${resource.number}`}
-                        style={{ color: 'var(--color-primary-border)', textDecoration: 'none' }}
+                        href={`tel:${resource.phone}`}
+                        className="resource-link"
                       >
-                        📞 {resource.number}
+                        📞 {resource.phone}
                       </a>
                     </p>
                   )}
                   {resource.location && (
-                    <p className="mb-1 text-muted">📍 {resource.location}</p>
+                    <p className="resource-info">📍 {resource.location}</p>
                   )}
-                  {resource.type && (
-                    <p className="mb-1 text-muted">🔧 {resource.type}</p>
+                  {resource.services && (
+                    <p className="resource-info">🔧 {resource.services}</p>
+                  )}
+                  {resource.available && (
+                    <p className="resource-info">⏰ {resource.available}</p>
+                  )}
+                  {resource.capacity && (
+                    <span className={`badge ${
+                      resource.capacity === 'Available' ? 'bg-success' : 'bg-warning'
+                    }`}>
+                      {resource.capacity}
+                    </span>
                   )}
                 </div>
+                <a 
+                  href={resource.phone ? `tel:${resource.phone}` : '#'}
+                  className="btn btn-sm"
+                  style={{
+                    background: 'var(--gradient-primary)',
+                    color: 'white',
+                    borderRadius: '8px'
+                  }}
+                >
+                  Call →
+                </a>
               </div>
             </div>
           </div>
         ))}
         {resources.length === 0 && !loading && (
-          <div className="col-12 text-center text-muted py-4">
-            No resources found for this location.
+          <div className="col-12 text-center py-5">
+            <p style={{ color: 'var(--color-text-muted)' }}>
+              No resources found for this location.
+            </p>
           </div>
         )}
       </div>
     )
   }
 
-  // Group API resources by type for tab display
   const groupResourcesByType = (resources) => {
     const typeMap = {
       hotline: 'hotlines',
@@ -153,44 +165,30 @@ function Resources() {
       <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
           <div className="card-custom">
-            <h3 className="mb-4 text-center" style={{ color: 'var(--color-primary-light)' }}>
-              {t('resources.title') || 'Local Resources'}
+            <h3 className="mb-4 text-gradient text-center">
+              📍 {t('resources.title') || 'Local Resources'}
             </h3>
 
-            {/* Location Filter */}
             <div className="mb-4">
-              <label className="form-label text-muted">Filter by Location</label>
+              <label className="form-label">Filter by Location</label>
               <select
                 className="form-select"
                 value={locationFilter}
                 onChange={(e) => setLocationFilter(e.target.value)}
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  border: '1px solid var(--color-primary-border)',
-                  color: 'var(--color-text)'
-                }}
               >
                 <option value="all">All Locations</option>
-                <option value="nairobi">Nairobi</option>
-                <option value="mombasa">Mombasa</option>
-                <option value="kisumu">Kisumu</option>
+                <option value="Nairobi">Nairobi</option>
+                <option value="Mombasa">Mombasa</option>
+                <option value="Kisumu">Kisumu</option>
               </select>
             </div>
 
-            {/* Tabs */}
             <ul className="nav nav-pills mb-4 nav-fill">
               {tabs.map((tab) => (
                 <li key={tab.id} className="nav-item">
                   <button
                     className={`nav-link ${activeTab === tab.id ? 'active' : ''}`}
                     onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      backgroundColor: activeTab === tab.id ? 'var(--color-primary)' : 'transparent',
-                      color: activeTab === tab.id ? 'var(--color-primary-light)' : 'var(--color-text-muted)',
-                      border: 'none',
-                      margin: '0 2px',
-                      fontSize: '0.875rem'
-                    }}
                   >
                     {tab.icon} {tab.label}
                   </button>
@@ -198,18 +196,17 @@ function Resources() {
               ))}
             </ul>
 
-            {/* Content */}
             <div className="mb-4">
               {renderContent()}
             </div>
 
-            <div className="d-grid gap-2">
+            <div className="d-grid">
               <button
                 className="btn btn-outline-secondary btn-sm"
                 onClick={() => navigate('/results')}
                 style={{ 
-                  borderColor: 'var(--color-primary-border)',
-                  color: 'var(--color-primary-light)'
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--color-text-secondary)'
                 }}
               >
                 ← Back to Results

@@ -18,7 +18,6 @@ function Chatbot() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Update welcome message when language changes
   useEffect(() => {
     setMessages([{ id: 1, text: t('chatbot.welcome'), isUser: false }])
   }, [t])
@@ -34,17 +33,14 @@ function Chatbot() {
     setError(null)
 
     try {
-      // Call backend API
       const response = await chatApi.sendMessage({
         message: inputValue,
         language,
         sessionId,
       })
 
-      // Update risk level from API response
       setRiskLevel(response.risk_level)
 
-      // Add bot response
       const botMessage = {
         id: Date.now() + 1,
         text: response.reply,
@@ -53,7 +49,6 @@ function Chatbot() {
       }
       setMessages(prev => [...prev, botMessage])
     } catch (err) {
-      // Fallback to local response if API fails
       const fallbackMessage = {
         id: Date.now() + 1,
         text: getSimulatedResponse(inputValue),
@@ -95,13 +90,12 @@ function Chatbot() {
     <div className="container">
       <div className="row justify-content-center">
         <div className="col-md-8 col-lg-6">
-          <div className="card-custom" style={{ minHeight: '70vh' }}>
-            <h3 className="mb-4 text-center" style={{ color: 'var(--color-primary-light)' }}>
-              {t('chatbot.title')}
-            </h3>
+          <div className="chat-container">
+            <div className="chat-header">
+              <h3>💬 {t('chatbot.title') || 'How can we help?'}</h3>
+            </div>
 
-            {/* Chat Messages */}
-            <div className="mb-4" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
+            <div className="chat-messages">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -113,50 +107,51 @@ function Chatbot() {
               
               {isLoading && (
                 <div className="chat-bubble chat-bubble-bot">
-                  <div className="spinner-border spinner-border-sm" role="status">
+                  <div className="spinner-border" role="status">
                     <span className="visually-hidden">Loading...</span>
                   </div>
                 </div>
               )}
+
+              {error && (
+                <div className="alert alert-warning mt-2" style={{ fontSize: '0.875rem' }}>
+                  ⚠️ {error}
+                </div>
+              )}
             </div>
 
-            {/* Input Area */}
-            <div className="mb-3">
-              <textarea
-                className="form-control"
-                rows="3"
-                placeholder={t('chatbot.placeholder')}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  border: '1px solid var(--color-primary-border)',
-                  color: 'var(--color-text)',
-                  resize: 'none'
-                }}
-              />
-            </div>
+            <div className="chat-input-area">
+              <div className="mb-3">
+                <textarea
+                  className="form-control chat-textarea"
+                  rows="3"
+                  placeholder={t('chatbot.placeholder') || 'Describe your situation...'}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                />
+              </div>
 
-            <div className="d-grid gap-2">
-              <button
-                className="btn btn-primary-custom"
-                onClick={handleSend}
-                disabled={!inputValue.trim() || isLoading}
-              >
-                📤 {t('chatbot.send')}
-              </button>
-              
-              <button
-                className="btn btn-outline-secondary btn-sm"
-                onClick={handleSeeResults}
-                style={{ 
-                  borderColor: 'var(--color-primary-border)',
-                  color: 'var(--color-primary-light)'
-                }}
-              >
-                See Support Resources →
-              </button>
+              <div className="d-grid gap-2">
+                <button
+                  className="btn-primary-custom w-100"
+                  onClick={handleSend}
+                  disabled={!inputValue.trim() || isLoading}
+                >
+                  📤 {t('chatbot.send') || 'Send Message'}
+                </button>
+                
+                <button
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={handleSeeResults}
+                  style={{ 
+                    borderColor: 'var(--border-color)',
+                    color: 'var(--color-text-secondary)'
+                  }}
+                >
+                  See Support Resources →
+                </button>
+              </div>
             </div>
           </div>
         </div>
