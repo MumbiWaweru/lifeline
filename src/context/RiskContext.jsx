@@ -3,7 +3,7 @@ import { createContext, useContext, useState } from 'react'
 const RiskContext = createContext()
 
 export function RiskProvider({ children }) {
-  const [riskLevel, setRiskLevel] = useState(null) // 'low', 'medium', 'high'
+  const [riskLevel, setRiskLevel] = useState(null) // 'low', 'medium', 'high' or 'green', 'amber', 'red'
   const [riskFactors, setRiskFactors] = useState([])
 
   const assessRisk = (message) => {
@@ -45,7 +45,7 @@ export function RiskProvider({ children }) {
   }
 
   return (
-    <RiskContext.Provider value={{ riskLevel, riskFactors, assessRisk, clearRisk }}>
+    <RiskContext.Provider value={{ riskLevel, riskFactors, assessRisk, setRiskLevel, clearRisk }}>
       {children}
     </RiskContext.Provider>
   )

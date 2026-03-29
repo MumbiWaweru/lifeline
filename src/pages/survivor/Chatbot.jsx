@@ -1,18 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
 import { useRisk } from '../../context/RiskContext'
+import { chatApi } from '../../services/api'
+import { getSessionId } from '../../config'
 
 function Chatbot() {
   const navigate = useNavigate()
-  const { t } = useLanguage()
-  const { assessRisk } = useRisk()
+  const { t, language } = useLanguage()
+  const { setRiskLevel } = useRisk()
+  const [sessionId] = useState(getSessionId())
   
   const [messages, setMessages] = useState([
     { id: 1, text: t('chatbot.welcome'), isUser: false }
   ])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Update welcome message when language changes
+  useEffect(() => {
+    setMessages([{ id: 1, text: t('chatbot.welcome'), isUser: false }])
+  }, [t])
 
   const handleSend = async () => {
     if (!inputValue.trim()) return
@@ -20,22 +29,41 @@ function Chatbot() {
     const userMessage = { id: Date.now(), text: inputValue, isUser: true }
     setMessages(prev => [...prev, userMessage])
     
-    // Assess risk level based on message
-    assessRisk(inputValue)
-    
     setInputValue('')
     setIsLoading(true)
+    setError(null)
 
-    // Simulate AI response (replace with actual API call to backend)
-    setTimeout(() => {
+    try {
+      // Call backend API
+      const response = await chatApi.sendMessage({
+        message: inputValue,
+        language,
+        sessionId,
+      })
+
+      // Update risk level from API response
+      setRiskLevel(response.risk_level)
+
+      // Add bot response
       const botMessage = {
         id: Date.now() + 1,
-        text: getSimulatedResponse(inputValue),
-        isUser: false
+        text: response.reply,
+        isUser: false,
+        hotlines: response.hotlines,
       }
       setMessages(prev => [...prev, botMessage])
-      setIsLoading(false)
-    }, 1500)
+    } catch (err) {
+      // Fallback to local response if API fails
+      const fallbackMessage = {
+        id: Date.now() + 1,
+        text: getSimulatedResponse(inputValue),
+        isUser: false,
+      }
+      setMessages(prev => [...prev, fallbackMessage])
+      setError('Using offline mode. Backend service unavailable.')
+    }
+
+    setIsLoading(false)
   }
 
   const getSimulatedResponse = (message) => {

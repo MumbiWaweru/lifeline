@@ -5,6 +5,21 @@ function RiskIndicator() {
   const { riskLevel } = useRisk()
   const { t } = useLanguage()
 
+  // Map backend risk levels (green/amber/red) to display
+  const getRiskDisplay = (level) => {
+    const mappings = {
+      green: { label: t('riskLevels.low') || 'Low Risk', class: 'risk-low', icon: '🟢' },
+      amber: { label: t('riskLevels.medium') || 'Medium Risk', class: 'risk-medium', icon: '🟡' },
+      red: { label: t('riskLevels.high') || 'High Risk', class: 'risk-high', icon: '🔴' },
+      low: { label: t('riskLevels.low') || 'Low Risk', class: 'risk-low', icon: '🟢' },
+      medium: { label: t('riskLevels.medium') || 'Medium Risk', class: 'risk-medium', icon: '🟡' },
+      high: { label: t('riskLevels.high') || 'High Risk', class: 'risk-high', icon: '🔴' },
+    }
+    return mappings[level] || mappings.green
+  }
+
+  const display = getRiskDisplay(riskLevel)
+
   if (!riskLevel) {
     return (
       <span className="risk-indicator risk-low">
@@ -13,18 +28,9 @@ function RiskIndicator() {
     )
   }
 
-  const riskClass = `risk-${riskLevel}`
-  const riskLabel = t(`riskLevels.${riskLevel}`)
-  
-  const icons = {
-    low: '🟢',
-    medium: '🟡',
-    high: '🔴'
-  }
-
   return (
-    <span className={`risk-indicator ${riskClass}`}>
-      {icons[riskLevel]} {riskLabel}
+    <span className={`risk-indicator ${display.class}`}>
+      {display.icon} {display.label}
     </span>
   )
 }

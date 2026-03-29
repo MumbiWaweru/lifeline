@@ -70,24 +70,53 @@ lifeline/
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
-- npm or yarn
+- Node.js 18+ (for frontend)
+- Python 3.9+ (for backend)
 
-### Installation
+### Frontend Setup
 
 ```bash
 # Install dependencies
 npm install
+
+# Create .env file (copy from .env.example)
+cp .env.example .env
 
 # Start development server
 npm run dev
 
 # Build for production
 npm run build
-
-# Preview production build
-npm run preview
 ```
+
+### Backend Setup (Partner's Work)
+
+```bash
+cd backend
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create .env file with configuration
+cat > .env <<'EOF'
+DATABASE_URL=sqlite+aiosqlite:///./app.db
+CLAUDE_API_KEY=your_key_here
+CLAUDE_MODEL=claude-3-sonnet-20240229
+ADMIN_PASSWORD=admin123
+ADMIN_TOKEN=demo-admin-token
+ALLOWED_ORIGINS=http://localhost:5173
+EOF
+
+# Start backend server
+uvicorn app.main:app --reload
+```
+
+Backend will be available at `http://localhost:8000`
+Backend API docs at `http://localhost:8000/docs`
 
 ## Features
 
@@ -110,15 +139,50 @@ npm run preview
 - Conversation viewer for flagged cases
 - Full CRUD for resource management
 
-## API Integration (Backend Pending)
+## API Integration
 
-The frontend is ready to integrate with backend APIs. Key integration points:
+The frontend is now **fully integrated** with the backend API. Here's how they connect:
 
-1. **Chatbot** - Replace `getSimulatedResponse()` with actual AI API call
-2. **Risk Assessment** - Connect to backend risk analysis service
-3. **Resources** - Fetch from backend database instead of static data
-4. **Admin Auth** - Implement proper JWT authentication
-5. **Conversations** - Load real conversation history from database
+### Frontend → Backend Endpoints
+
+| Frontend Service | Backend Endpoint | Description |
+|-----------------|------------------|-------------|
+| `chatApi.sendMessage()` | `POST /chat` | Send message, get AI response + risk level |
+| `resourcesApi.getByLocation()` | `GET /resources?location=&language=` | Fetch resources by location |
+| `adminApi.login()` | `POST /admin/login` | Admin authentication |
+| `adminApi.getConversations()` | `GET /admin/conversations` | Get all conversations (auth required) |
+| `adminApi.getStats()` | `GET /admin/stats` | Get dashboard statistics (auth required) |
+| `healthApi.check()` | `GET /health` | Health check endpoint |
+
+### Backend Data Models
+
+The backend uses these models (defined in `backend/app/models.py`):
+- **Conversation**: Stores session info, risk level, language
+- **Message**: Individual messages linked to conversations
+- **Resource**: Support resources (hotlines, shelters, organizations)
+
+### Risk Level Mapping
+
+Backend uses: `green`, `amber`, `red`
+Frontend maps to: `low`, `medium`, `high`
+
+### Running Both Services
+
+1. **Start backend** (in one terminal):
+   ```bash
+   cd backend
+   uvicorn app.main:app --reload
+   ```
+
+2. **Start frontend** (in another terminal):
+   ```bash
+   npm run dev
+   ```
+
+3. **Access the app**:
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:8000
+   - Backend Docs: http://localhost:8000/docs
 
 ## Security Considerations
 
@@ -129,11 +193,33 @@ The frontend is ready to integrate with backend APIs. Key integration points:
 
 ## Next Steps
 
-1. **Backend Integration** - Connect to partner's backend API
-2. **Real AI Integration** - Connect to actual chatbot/AI service
-3. **Geolocation** - Add location-based resource filtering
-4. **Testing** - Add unit and integration tests
-5. **Deployment** - Set up production deployment pipeline
+1. **Test Backend Integration**:
+   - Start both frontend and backend servers
+   - Test chatbot with real AI (Claude API)
+   - Verify resources load from database
+   - Test admin dashboard with real data
+
+2. **Configure Claude API** (for AI chatbot):
+   - Get API key from Anthropic
+   - Add to backend `.env`: `CLAUDE_API_KEY=your_key`
+
+3. **Production Deployment**:
+   - Set up production database (PostgreSQL)
+   - Configure environment variables
+   - Set up proper admin authentication
+   - Deploy frontend (Vercel, Netlify, etc.)
+   - Deploy backend (Railway, Render, etc.)
+
+4. **Testing**:
+   - Add unit and integration tests
+   - Test all user flows
+   - Verify risk assessment accuracy
+
+5. **Enhancements**:
+   - Add geolocation for automatic location detection
+   - Add more languages
+   - Improve AI prompt for better responses
+   - Add analytics and reporting
 
 ## License
 

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
+import { resourcesApi } from '../../services/api'
 
-// Sample resources data (will come from backend)
+// Sample resources data (fallback if API unavailable)
 const sampleResources = {
   hotlines: [
     { name: 'GBV Recovery Centre', phone: '0800 123 4567', available: '24/7' },
@@ -27,9 +28,30 @@ const sampleResources = {
 
 function Resources() {
   const navigate = useNavigate()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const [activeTab, setActiveTab] = useState('hotlines')
   const [locationFilter, setLocationFilter] = useState('all')
+  const [apiResources, setApiResources] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  // Fetch resources from API when location changes
+  useEffect(() => {
+    const fetchResources = async () => {
+      if (locationFilter === 'all') return
+      
+      setLoading(true)
+      try {
+        const response = await resourcesApi.getByLocation(locationFilter, language)
+        setApiResources(response.resources || [])
+      } catch (err) {
+        console.error('Failed to fetch resources:', err)
+        setApiResources([])
+      }
+      setLoading(false)
+    }
+
+    fetchResources()
+  }, [locationFilter, language])
 
   const tabs = [
     { id: 'hotlines', label: t('resources.hotlines') || 'Hotlines', icon: '📞' },
@@ -39,7 +61,21 @@ function Resources() {
   ]
 
   const renderContent = () => {
-    const resources = sampleResources[activeTab] || []
+    // Use API resources if available, otherwise use sample data
+    const resources = apiResources.length > 0 
+      ? groupResourcesByType(apiResources)
+      : sampleResources[activeTab] || []
+    
+    if (loading) {
+      return (
+        <div className="text-center py-4">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-2 text-muted">Loading resources...</p>
+        </div>
+      )
+    }
     
     return (
       <div className="row g-3">
@@ -58,39 +94,58 @@ function Resources() {
                   <h6 className="mb-1" style={{ color: 'var(--color-primary-light)' }}>
                     {resource.name}
                   </h6>
-                  {resource.phone && (
+                  {resource.number && (
                     <p className="mb-1 text-muted">
                       <a 
-                        href={`tel:${resource.phone}`}
+                        href={`tel:${resource.number}`}
                         style={{ color: 'var(--color-primary-border)', textDecoration: 'none' }}
                       >
-                        📞 {resource.phone}
+                        📞 {resource.number}
                       </a>
                     </p>
                   )}
                   {resource.location && (
                     <p className="mb-1 text-muted">📍 {resource.location}</p>
                   )}
-                  {resource.services && (
-                    <p className="mb-1 text-muted">🔧 {resource.services}</p>
-                  )}
-                  {resource.available && (
-                    <p className="mb-0 text-muted">⏰ {resource.available}</p>
-                  )}
-                  {resource.capacity && (
-                    <span className={`badge ${
-                      resource.capacity === 'Available' ? 'bg-success' : 'bg-warning'
-                    }`}>
-                      {resource.capacity}
-                    </span>
+                  {resource.type && (
+                    <p className="mb-1 text-muted">🔧 {resource.type}</p>
                   )}
                 </div>
               </div>
             </div>
           </div>
         ))}
+        {resources.length === 0 && !loading && (
+          <div className="col-12 text-center text-muted py-4">
+            No resources found for this location.
+          </div>
+        )}
       </div>
     )
+  }
+
+  // Group API resources by type for tab display
+  const groupResourcesByType = (resources) => {
+    const typeMap = {
+      hotline: 'hotlines',
+      shelter: 'shelters',
+      organization: 'organizations',
+      legal: 'organizations',
+      police: 'police',
+    }
+    
+    const grouped = { hotlines: [], shelters: [], organizations: [], police: [] }
+    
+    resources.forEach(resource => {
+      const tab = typeMap[resource.type] || 'organizations'
+      grouped[tab].push({
+        name: resource.name,
+        phone: resource.number,
+        location: resource.location,
+      })
+    })
+    
+    return grouped[activeTab] || []
   }
 
   return (
