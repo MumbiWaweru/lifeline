@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GBV Support Demo Chat</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --accent: #22d3ee;
+      --accent-2: #fbbf24;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #ef4444;
+      --ok: #10b981;
+      --warn: #f59e0b;
+      --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(34,211,238,0.15), transparent 35%),
+                  radial-gradient(circle at 80% 0%, rgba(239,68,68,0.12), transparent 30%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .shell {
+      width: min(1100px, 100%);
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      min-height: 640px;
+    }
+    .sidebar {
+      padding: 24px;
+      border-right: 1px solid rgba(255,255,255,0.07);
+      background: linear-gradient(180deg, rgba(34,211,238,0.06), rgba(15,23,42,0.7));
+    }
+    .main {
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 16px;
+    }
+    h1 { margin: 0 0 12px; font-size: 22px; }
+    label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+    select, textarea, input {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      font-size: 14px;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    button {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #0b1220;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease;
+      width: 100%;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .pill.green { background: rgba(16,185,129,0.15); color: var(--ok); }
+    .pill.amber { background: rgba(245,158,11,0.15); color: var(--warn); }
+    .pill.red { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .chat-box { flex: 1; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 14px; background: rgba(255,255,255,0.02); overflow-y: auto; min-height: 260px; }
+    .msg { margin-bottom: 14px; }
+    .msg .role { font-size: 12px; color: var(--muted); }
+    .msg .bubble { padding: 10px 12px; border-radius: 12px; display: inline-block; max-width: 90%; line-height: 1.4; }
+    .user .bubble { background: rgba(34,211,238,0.15); border: 1px solid rgba(34,211,238,0.25); }
+    .bot .bubble { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+    .hotlines { margin-top: 10px; display: grid; gap: 8px; }
+    .card { border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 12px; background: rgba(255,255,255,0.03); }
+    .meta { font-size: 12px; color: var(--muted); }
+    .status { font-size: 13px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <h1>GBV Support Demo</h1>
+      <p class="status" id="status">Ready. Backend must run on http://127.0.0.1:8000.</p>
+      <div style="margin-top:18px;">
+        <label for="language">Language</label>
+        <select id="language">
+          <option value="en" selected>English</option>
+          <option value="sw">Swahili</option>
+        </select>
+      </div>
+      <div style="margin-top:12px;">
+        <label for="message">Your message</label>
+        <textarea id="message" placeholder="Describe your situation..." ></textarea>
+      </div>
+      <button id="send">Send to Chatbot</button>
+      <p class="status" id="risk">Risk: not assessed yet.</p>
+    </div>
+    <div class="main">
+      <div class="chat-box" id="chat"></div>
+      <div id="hotlines"></div>
+    </div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById('chat');
+    const hotlinesBox = document.getElementById('hotlines');
+    const sendBtn = document.getElementById('send');
+    const msgInput = document.getElementById('message');
+    const langSelect = document.getElementById('language');
+    const statusEl = document.getElementById('status');
+    const riskEl = document.getElementById('risk');
+
+    const sessionId = crypto.randomUUID();
+    const apiBase = 'http://127.0.0.1:8000';
+
+    function addMessage(role, text) {
+      const wrap = document.createElement('div');
+      wrap.className = `msg ${role}`;
+      wrap.innerHTML = `<div class="role">${role === 'user' ? 'You' : 'Assistant'}</div><div class="bubble">${escapeHtml(text)}</div>`;
+      chatBox.appendChild(wrap);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function setRisk(level) {
+      const cls = level === 'red' ? 'red' : level === 'amber' ? 'amber' : 'green';
+      riskEl.innerHTML = `Risk: <span class="pill ${cls}">${level}</span>`;
+    }
+
+    function renderHotlines(list) {
+      hotlinesBox.innerHTML = '';
+      if (!list || !list.length) return;
+      const container = document.createElement('div');
+      container.className = 'hotlines';
+      list.forEach(h => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<strong>${escapeHtml(h.name || 'Hotline')}</strong><div class="meta">${escapeHtml(h.number || '')} • ${escapeHtml(h.type || '')}</div>`;
+        container.appendChild(card);
+      });
+      hotlinesBox.appendChild(container);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s]));
+    }
+
+    async function sendMessage() {
+      const text = msgInput.value.trim();
+      const language = langSelect.value;
+      if (!text) return;
+      addMessage('user', text);
+      sendBtn.disabled = true;
+      statusEl.textContent = 'Sending...';
+      try {
+        const res = await fetch(`${apiBase}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, language, session_id: sessionId })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`HTTP ${res.status}: ${errText}`);
+        }
+        const data = await res.json();
+        addMessage('bot', data.reply || '');
+        setRisk(data.risk_level || 'green');
+        renderHotlines(data.hotlines || []);
+        statusEl.textContent = 'Ready';
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+      } finally {
+        sendBtn.disabled = false;
+        msgInput.value = '';
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>
