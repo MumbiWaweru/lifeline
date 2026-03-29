@@ -21,3 +21,9 @@ __pycache__/
 # OS files
 .DS_Store
 Thumbs.db
+
+# static files 
+static/
+
+# Static files (handled by frontend)
+static/
