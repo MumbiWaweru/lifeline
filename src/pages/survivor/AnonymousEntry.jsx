@@ -14,7 +14,9 @@ function AnonymousEntry() {
       <div className="row justify-content-center align-items-center min-vh-100">
         <div className="col-md-8 col-lg-6">
           <div className="card-custom anonymous-card">
-            <span className="anonymous-icon">🙋</span>
+            <div className="anonymous-icon-wrapper mb-4">
+              <div className="anonymous-icon"></div>
+            </div>
             
             <h2 className="mb-3 text-gradient">
               Anonymous & Confidential
@@ -27,19 +29,19 @@ function AnonymousEntry() {
 
             <div className="feature-grid">
               <div className="feature-item">
-                <span className="feature-icon">🔒</span>
+                <div className="feature-icon-shield"></div>
                 <div className="feature-text">No Account Required</div>
               </div>
               <div className="feature-item">
-                <span className="feature-icon">👤</span>
+                <div className="feature-icon-user"></div>
                 <div className="feature-text">100% Anonymous</div>
               </div>
               <div className="feature-item">
-                <span className="feature-icon">🛡️</span>
-                <div className="feature-text">Encrypted</div>
+                <div className="feature-icon-lock"></div>
+                <div className="feature-text">Encrypted Connection</div>
               </div>
               <div className="feature-item">
-                <span className="feature-icon">💬</span>
+                <div className="feature-icon-chat"></div>
                 <div className="feature-text">Private Chat</div>
               </div>
             </div>
@@ -49,18 +51,18 @@ function AnonymousEntry() {
                 className="btn-primary-custom btn-lg w-100"
                 onClick={handleContinue}
               >
-                Continue to Chat →
+                Continue to Chat
               </button>
               
               <button
                 className="btn btn-outline-secondary btn-sm"
                 onClick={() => navigate('/')}
                 style={{ 
-                  borderColor: 'var(--color-border)',
+                  borderColor: 'var(--border-color)',
                   color: 'var(--color-text-secondary)'
                 }}
               >
-                ← Back to Home
+                Back to Home
               </button>
             </div>
           </div>

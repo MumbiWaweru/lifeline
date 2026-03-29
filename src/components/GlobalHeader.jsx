@@ -8,7 +8,6 @@ function GlobalHeader() {
   const { t } = useLanguage()
 
   const handleQuickExit = () => {
-    // Redirect to Google immediately
     window.location.href = 'https://www.google.com'
   }
 
@@ -21,7 +20,7 @@ function GlobalHeader() {
               className="quick-exit-btn"
               onClick={handleQuickExit}
             >
-              ⚠️ {t('quickExit')}
+              {t('quickExit') || 'Quick Exit'}
             </button>
           </div>
           

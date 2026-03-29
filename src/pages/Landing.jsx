@@ -20,21 +20,30 @@ function Landing() {
             className="btn-landing-primary"
             onClick={() => navigate('/entry')}
           >
-            🤝 I Need Help
+            I Need Help
           </button>
           
           <button
             className="btn-landing-secondary"
             onClick={() => navigate('/admin/login')}
           >
-            🔐 Admin Login
+            Admin Login
           </button>
         </div>
 
-        <div className="mt-5">
-          <small style={{ color: 'var(--color-text-muted)' }}>
-            🔒 Your privacy and safety are our priority. All conversations are confidential.
-          </small>
+        <div className="trust-indicators mt-5">
+          <div className="trust-item">
+            <span className="trust-icon">🔒</span>
+            <span className="trust-text">100% Anonymous</span>
+          </div>
+          <div className="trust-item">
+            <span className="trust-icon">🛡️</span>
+            <span className="trust-text">Secure & Encrypted</span>
+          </div>
+          <div className="trust-item">
+            <span className="trust-icon">💬</span>
+            <span className="trust-text">24/7 Support</span>
+          </div>
         </div>
       </div>
     </div>

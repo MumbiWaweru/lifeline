@@ -299,12 +299,13 @@ body {
 .landing-title {
   font-size: 3.5rem;
   font-weight: 800;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   background: var(--gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   line-height: 1.2;
+  letter-spacing: -1px;
 }
 
 .landing-subtitle {
@@ -371,6 +372,304 @@ body {
   transform: translateY(-2px);
 }
 
+/* Trust Indicators */
+.trust-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-top: 3rem !important;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.trust-icon {
+  font-size: 1.25rem;
+  color: var(--color-primary-light);
+}
+
+/* ==================== TYPING INDICATOR ==================== */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+/* ==================== RESOURCES PAGE ==================== */
+.resources-page-header {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.resources-page-header h2 {
+  font-size: 2.5rem;
+  font-weight: 800;
+}
+
+.resources-page-header .text-secondary {
+  color: var(--color-text-secondary);
+  font-size: 1.125rem;
+}
+
+.resource-tabs {
+  background: var(--color-bg-secondary);
+  border-radius: 12px;
+  padding: 0.25rem;
+  margin-bottom: 2rem !important;
+}
+
+.resource-tabs .nav-link {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  transition: all var(--transition-base);
+  border: none;
+  font-size: 0.875rem;
+}
+
+.resource-tabs .nav-link:hover {
+  color: var(--color-text);
+}
+
+.resource-tabs .nav-link.active {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.resources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.resource-item {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all var(--transition-base);
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 1.5rem;
+}
+
+.resource-item:hover {
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.05);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.resource-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.resource-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.resource-name {
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.capacity-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.capacity-badge.available {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--color-risk-low);
+  border: 1px solid var(--color-risk-low);
+}
+
+.capacity-badge.limited {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-risk-medium);
+  border: 1px solid var(--color-risk-medium);
+}
+
+.resource-description {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.resource-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.resource-detail {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.resource-detail strong {
+  color: var(--color-text);
+}
+
+.resource-detail a {
+  color: var(--color-primary-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.resource-detail a:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.resource-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.btn-call {
+  background: var(--gradient-primary);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  text-align: center;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+}
+
+.btn-call:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+  color: white;
+}
+
+.btn-details {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--color-text-secondary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+}
+
+.btn-details:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* ==================== RISK ADVICE CARD ==================== */
+.risk-advice-card {
+  transition: all var(--transition-base);
+}
+
+.advice-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.advice-icon-danger {
+  background: var(--color-risk-high);
+}
+
+.advice-icon-warning {
+  background: var(--color-risk-medium);
+}
+
+.advice-icon-success {
+  background: var(--color-risk-low);
+}
+
+.advice-list {
+  padding-left: 1.5rem;
+}
+
+.advice-list li {
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+/* Emergency button */
+.emergency-btn {
+  font-weight: 600;
+  transition: all var(--transition-base);
+}
+
+.emergency-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
 /* ==================== CHAT INTERFACE ==================== */
 .chat-container {
   background: var(--color-bg-card);
@@ -391,6 +690,12 @@ body {
   color: var(--color-text);
   font-size: 1.25rem;
   font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+
+.chat-header-subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
   margin: 0;
 }
 
@@ -502,11 +807,43 @@ body {
   padding: 3rem 2rem;
 }
 
+.anonymous-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .anonymous-icon {
-  font-size: 5rem;
-  margin-bottom: 1.5rem;
-  display: block;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  position: relative;
   animation: float 3s ease-in-out infinite;
+}
+
+.anonymous-icon::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background: var(--color-bg);
+  border-radius: 50%;
+}
+
+.anonymous-icon::after {
+  content: '';
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 25px;
+  background: var(--color-bg);
+  border-radius: 0 0 50px 50px;
 }
 
 @keyframes float {
@@ -535,10 +872,52 @@ body {
   transform: translateY(-2px);
 }
 
-.feature-icon {
-  font-size: 2rem;
-  margin-bottom: 0.75rem;
-  display: block;
+.feature-icon-shield,
+.feature-icon-user,
+.feature-icon-lock,
+.feature-icon-chat {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 0.75rem;
+  background: var(--gradient-primary);
+  border-radius: 10px;
+  position: relative;
+}
+
+.feature-icon-shield::before {
+  content: '🛡';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.25rem;
+}
+
+.feature-icon-user::before {
+  content: '👤';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.25rem;
+}
+
+.feature-icon-lock::before {
+  content: '🔒';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.25rem;
+}
+
+.feature-icon-chat::before {
+  content: '💬';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.25rem;
 }
 
 .feature-text {

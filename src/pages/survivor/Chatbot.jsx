@@ -92,7 +92,8 @@ function Chatbot() {
         <div className="col-md-8 col-lg-6">
           <div className="chat-container">
             <div className="chat-header">
-              <h3>💬 {t('chatbot.title') || 'How can we help?'}</h3>
+              <h3>{t('chatbot.title') || 'How can we help?'}</h3>
+              <p className="chat-header-subtitle">Chat with our support assistant</p>
             </div>
 
             <div className="chat-messages">
@@ -107,15 +108,17 @@ function Chatbot() {
               
               {isLoading && (
                 <div className="chat-bubble chat-bubble-bot">
-                  <div className="spinner-border" role="status">
-                    <span className="visually-hidden">Loading...</span>
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="alert alert-warning mt-2" style={{ fontSize: '0.875rem' }}>
-                  ⚠️ {error}
+                <div className="alert alert-warning mt-2">
+                  {error}
                 </div>
               )}
             </div>
@@ -138,7 +141,7 @@ function Chatbot() {
                   onClick={handleSend}
                   disabled={!inputValue.trim() || isLoading}
                 >
-                  📤 {t('chatbot.send') || 'Send Message'}
+                  Send Message
                 </button>
                 
                 <button
@@ -149,7 +152,7 @@ function Chatbot() {
                     color: 'var(--color-text-secondary)'
                   }}
                 >
-                  See Support Resources →
+                  View Support Resources
                 </button>
               </div>
             </div>

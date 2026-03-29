@@ -12,10 +12,11 @@ function Results() {
       case 'high':
       case 'red':
         return {
-          title: '🚨 Immediate Safety Tips',
+          title: 'Immediate Safety Tips',
           color: 'danger',
+          icon: 'alert',
           items: [
-            'If you\'re in immediate danger, call emergency services (999)',
+            'If you are in immediate danger, call emergency services (999)',
             'Try to stay in a room with an exit - avoid kitchens, bathrooms, or garages',
             'Keep your phone charged and accessible',
             'Have a trusted neighbor aware of your situation',
@@ -25,20 +26,22 @@ function Results() {
       case 'medium':
       case 'amber':
         return {
-          title: '⚠️ Safety Planning',
+          title: 'Safety Planning',
           color: 'warning',
+          icon: 'shield',
           items: [
             'Identify safe spaces in your home',
             'Keep important documents in an accessible place',
-            'Establish a code word with trusted friends/family',
+            'Establish a code word with trusted friends or family',
             'Save emergency numbers in your phone',
             'Consider speaking with a counselor'
           ]
         }
       default:
         return {
-          title: '💚 Support Resources',
+          title: 'Support Resources',
           color: 'success',
+          icon: 'heart',
           items: [
             'Reach out to trusted friends or family',
             'Consider counseling or support groups',
@@ -58,42 +61,49 @@ function Results() {
         <div className="col-md-8 col-lg-6">
           <div className="card-custom mb-4">
             <h3 className="mb-4 text-gradient">
-              📋 Support Results
+              Support Results
             </h3>
 
-            <div className={`p-4 mb-4 rounded-4 border ${
+            <div className={`risk-advice-card p-4 mb-4 rounded-4 border ${
               advice.color === 'danger' ? 'bg-danger bg-opacity-10 border-danger' :
               advice.color === 'warning' ? 'bg-warning bg-opacity-10 border-warning' :
               'bg-success bg-opacity-10 border-success'
             }`}>
-              <h5 className="mb-3">{advice.title}</h5>
-              <ul className="mb-0" style={{ paddingLeft: '1.25rem' }}>
+              <div className="d-flex align-items-start mb-3">
+                <div className={`advice-icon advice-icon-${advice.color}`}>
+                  {advice.icon === 'alert' && '!'}
+                  {advice.icon === 'shield' && '🛡'}
+                  {advice.icon === 'heart' && '♥'}
+                </div>
+                <div className="ms-3">
+                  <h5 className="mb-0">{advice.title}</h5>
+                </div>
+              </div>
+              <ul className="mb-0 advice-list">
                 {advice.items.map((item, index) => (
-                  <li key={index} className="mb-2" style={{ color: 'var(--color-text-secondary)' }}>{item}</li>
+                  <li key={index} className="mb-2">{item}</li>
                 ))}
               </ul>
             </div>
 
             <div className="mb-4">
-              <h5 className="mb-3">📞 Emergency Contacts</h5>
+              <h5 className="mb-3">Emergency Contacts</h5>
               <div className="d-grid gap-2">
                 <a 
                   href="tel:999" 
-                  className="btn btn-danger btn-sm py-3"
-                  style={{ borderRadius: '12px', fontWeight: '600' }}
+                  className="btn btn-danger btn-sm py-3 emergency-btn"
                 >
-                  🚨 Emergency: 999
+                  Emergency: 999
                 </a>
                 <a 
                   href="tel:08001234567" 
-                  className="btn btn-outline-light btn-sm py-3"
+                  className="btn btn-outline-light btn-sm py-3 emergency-btn"
                   style={{ 
-                    borderRadius: '12px', 
                     borderColor: 'var(--border-color)',
                     color: 'var(--color-text)'
                   }}
                 >
-                  📞 GBV Hotline: 0800 123 4567
+                  GBV Hotline: 0800 123 4567
                 </a>
               </div>
             </div>
@@ -103,7 +113,7 @@ function Results() {
                 className="btn-primary-custom"
                 onClick={() => navigate('/resources')}
               >
-                📍 View Local Resources
+                View Local Resources
               </button>
               
               <button
@@ -114,7 +124,7 @@ function Results() {
                   color: 'var(--color-text-secondary)'
                 }}
               >
-                ← Back to Chat
+                Back to Chat
               </button>
             </div>
           </div>
