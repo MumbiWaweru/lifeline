@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import List, Literal, Optional
+import uuid
 
 from pydantic import BaseModel, Field
 
@@ -77,3 +78,59 @@ class StatsResponse(BaseModel):
 	green: int
 	amber: int
 	red: int
+	flagged: int
+	alerts: int
+
+
+# Alert schemas
+class AlertOut(BaseModel):
+	id: uuid.UUID
+	session_id: str
+	risk_level: str
+	message_preview: Optional[str]
+	created_at: datetime
+
+	class Config:
+		from_attributes = True
+
+
+class AlertsResponse(BaseModel):
+	alerts: List[AlertOut]
+
+
+# Counsellor schemas
+class CounsellorBase(BaseModel):
+	name: str
+	email: str
+	phone: Optional[str] = None
+	is_available: bool = True
+
+
+class CounsellorCreate(CounsellorBase):
+	pass
+
+
+class CounsellorOut(CounsellorBase):
+	id: uuid.UUID
+	created_at: datetime
+
+	class Config:
+		from_attributes = True
+
+
+class CounsellorRequestCreate(BaseModel):
+	counsellor_id: uuid.UUID
+	session_id: str
+
+
+class CounsellorRequestOut(BaseModel):
+	id: uuid.UUID
+	session_id: str
+	counsellor_id: uuid.UUID
+	status: str
+	created_at: datetime
+	assigned_at: Optional[datetime]
+	counsellor: CounsellorOut
+
+	class Config:
+		from_attributes = True

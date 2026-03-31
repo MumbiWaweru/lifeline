@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import get_settings
 from .database import AsyncSessionLocal, Base, engine
 from .models import Resource
-from .routes import admin, chat, resources
+from .routes import admin, chat, resources, counsellors
 
 
 settings = get_settings()
@@ -27,6 +27,7 @@ app.add_middleware(
 # Register routers
 app.include_router(chat.router)
 app.include_router(resources.router)
+app.include_router(counsellors.router)
 app.include_router(admin.router)
 
 # Startup event to create tables and seed data if needed.

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +18,7 @@ class Conversation(Base):
 	session_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
 	language: Mapped[str] = mapped_column(String(4), default="en")
 	risk_level: Mapped[str] = mapped_column(String(10), default="green")
+	flagged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 	created_at: Mapped[datetime] = mapped_column(
 		DateTime(timezone=True), default=datetime.utcnow
 	)
@@ -63,3 +64,39 @@ class Resource(Base):
 	created_at: Mapped[datetime] = mapped_column(
 		DateTime(timezone=True), default=datetime.utcnow
 	)
+
+
+class Alert(Base):
+	__tablename__ = "alerts"
+
+	id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+	session_id: Mapped[str] = mapped_column(String(64), index=True)
+	risk_level: Mapped[str] = mapped_column(String(10))
+	message_preview: Mapped[str] = mapped_column(String(200), nullable=True)
+	created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class Counsellor(Base):
+	__tablename__ = "counsellors"
+
+	id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+	name: Mapped[str] = mapped_column(String(100))
+	email: Mapped[str] = mapped_column(String(100), unique=True)
+	phone: Mapped[str] = mapped_column(String(20), nullable=True)
+	is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+	created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+	requests: Mapped[list["CounsellorRequest"]] = relationship("CounsellorRequest", back_populates="counsellor")
+
+
+class CounsellorRequest(Base):
+	__tablename__ = "counsellor_requests"
+
+	id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+	session_id: Mapped[str] = mapped_column(String(64), index=True)
+	counsellor_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("counsellors.id"))
+	status: Mapped[str] = mapped_column(String(20), default="pending")
+	created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+	assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+
+	counsellor: Mapped["Counsellor"] = relationship("Counsellor", back_populates="requests")
