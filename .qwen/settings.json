@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(venv\\scripts\\activate)",
+      "Bash(pip install *)",
+      "Bash(taskkill *)",
+      "Bash(uvicorn *)",
+      "Bash(timeout *)",
+      "Bash(curl *)",
+      "Bash(python *)"
+    ]
+  },
+  "$version": 3
+}

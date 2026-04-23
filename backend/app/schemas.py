@@ -20,6 +20,7 @@ class ChatRequest(BaseModel):
 	message: str = Field(..., description="User's message to the chatbot")
 	language: Language = Field("en", description="Response language")
 	session_id: str = Field(..., description="Client-generated session identifier")
+	name: str = Field("", description="User's name (optional)")
 
 
 class ChatResponse(BaseModel):

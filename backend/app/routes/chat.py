@@ -45,7 +45,7 @@ async def chat(
 
 	# Call Claude for a reply + risk assessment
 	try:
-		result = await claude.generate(payload.message, payload.language)
+		result = await claude.generate(payload.message, payload.language, payload.name)
 	except Exception as exc:  # pragma: no cover - demo resilience
 		raise HTTPException(
 			status_code=status.HTTP_502_BAD_GATEWAY,
