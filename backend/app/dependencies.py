@@ -4,13 +4,13 @@ from fastapi import Depends, Header, HTTPException, status
 
 from .config import get_settings
 from .database import get_db
-from .services.claude import ClaudeClient
+from .services.gemini import GeminiClient
 
-# Dependency to provide a configured Claude client instance.
-def get_claude_client() -> ClaudeClient:
-	"""Provide a Claude client instance with configured API key/model."""
+# Dependency to provide a configured Gemini client instance.
+def get_gemini_client() -> GeminiClient:
+	"""Provide a Gemini client instance with configured API key."""
 	settings = get_settings()
-	return ClaudeClient(api_key=settings.claude_api_key, model=settings.claude_model)
+	return GeminiClient(api_key=settings.gemini_api_key)
 
 #  Dependency to enforce admin access on protected routes.
 async def require_admin(authorization: str | None = Header(None)) -> None:

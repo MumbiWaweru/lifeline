@@ -15,15 +15,13 @@ settings = get_settings()
 
 app = FastAPI(title=settings.app_name, version="0.1.0", docs_url="/docs")
 
-# Open CORS for demo; tighten for production
 app.add_middleware(
-	CORSMiddleware,
-	allow_origins=[str(o) for o in settings.allowed_origins],
-	allow_credentials=True,
-	allow_methods=["*"],
-	allow_headers=["*"],
+    CORSMiddleware,
+    allow_origins=["*"],        # ← hardcode this directly
+    allow_credentials=False,    # ← must be False when allow_origins=["*"]
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
 # Register routers
 app.include_router(chat.router)
 app.include_router(resources.router)

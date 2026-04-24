@@ -22,9 +22,19 @@ Your role:
 - Provide practical safety guidance
 - Connect survivors with relevant local resources
 
+CRITICAL RULES FOR EVERY RESPONSE:
+1. If the user has shared their name, USE IT naturally in your reply (e.g. "I hear you, Amina" or "Thank you for telling me that, Sarah").
+2. ALWAYS acknowledge the specific emotion or situation they described FIRST before giving advice.
+   - If they say they are scared → "It makes complete sense that you're scared..."
+   - If they say they are confused → "Feeling confused in this situation is completely understandable..."
+   - If they describe violence → "What you've just described is not okay, and it is not your fault..."
+3. NEVER jump straight to advice without first validating their feelings.
+4. Keep your tone warm, human, and personal — not clinical or list-like.
+5. End every response by inviting them to share more or asking one gentle follow-up question.
+
 ALWAYS respond in JSON format with these exact keys:
 {
-  "reply": "your compassionate, practical response in the user's language",
+  "reply": "your compassionate, personal response in the user's language",
   "risk_level": "green" | "amber" | "red",
   "hotlines": [{"name": "hotline name", "number": "phone number", "type": "hotline|emergency|legal|medical"}]
 }
@@ -35,13 +45,60 @@ Risk assessment criteria:
 - red: Immediate danger — physical violence occurring/imminent, weapons mentioned, severe threats
 
 Always include at minimum:
-- GVRC Hotline: 1195 (green/amber/red)
+- GVRC Hotline: 1195 (all risk levels)
 - Kenya Police: 999 (red only)
 - Kituo cha Sheria: 0800 720 185 (amber/red for legal help)
 
-Tone: Warm, calm, never clinical. Validate the survivor's experience. Focus on safety first.
 Language: Respond in the same language the user writes in (English or Swahili).
 Do NOT include any text outside the JSON object."""
+
+
+# Empathetic opening phrases by emotion keyword
+EMPATHY_OPENERS_EN = {
+    "scared":    "It makes complete sense that you're scared — what you're describing would frighten anyone.",
+    "afraid":    "Being afraid in this situation is completely understandable, and I want you to know that feeling is valid.",
+    "scared":    "It makes complete sense that you feel scared right now.",
+    "lonely":    "Feeling alone in this is one of the hardest parts, and I'm glad you reached out.",
+    "confused":  "Feeling confused about what's happening is completely normal — these situations are never simple.",
+    "ashamed":   "I want you to hear this clearly: what is happening to you is not your fault, and you have nothing to be ashamed of.",
+    "tired":     "Being exhausted by all of this is completely valid. You've been carrying so much.",
+    "hopeless":  "Even when things feel hopeless, you reaching out right now shows incredible strength.",
+    "angry":     "Your anger makes complete sense — what's been done to you is wrong.",
+    "hurt":      "I'm so sorry you've been hurt. You didn't deserve that.",
+    "trapped":   "Feeling trapped is real, and I want to help you see that options do exist, even when they feel invisible.",
+    "helpless":  "Feeling helpless doesn't mean you are helpless. I'm here, and we can think through this together.",
+    "desperate": "I can hear how desperate things feel right now, and I'm not going to leave you without support.",
+}
+
+EMPATHY_OPENERS_SW = {
+    "scared":    "Ni kawaida kabisa kuhisi woga — hali unayoelezea ingeweza kumtia mtu yeyote hofu.",
+    "afraid":    "Kuogopa katika hali hii ni jambo linaloeleweka, na hisia hiyo ni ya kweli.",
+    "peke":      "Kuhisi peke yako ni mojawapo ya mambo magumu zaidi, na ninafurahi ulifika.",
+    "confused":  "Kuhisi mkanganyiko kuhusu kinachoendelea ni kawaida kabisa — hali hizi hazieleweki rahisi.",
+    "aibu":      "Nataka usikia hili wazi: kinachokupata si kosa lako, na huna sababu ya kuona aibu.",
+    "choka":     "Kuchoka na hali hii ni jambo linaloeleweka. Umebeba mengi sana.",
+    "trapped":   "Kuhisi umefungwa ni hali halisi, na nataka kukusaidia kuona kwamba chaguo zipo.",
+}
+
+
+def _get_empathy_opener(message: str, language: str) -> str:
+    """Return an empathetic opener matched to keywords in the user's message."""
+    m = message.lower()
+    openers = EMPATHY_OPENERS_SW if language == "sw" else EMPATHY_OPENERS_EN
+    for keyword, opener in openers.items():
+        if keyword in m:
+            return opener
+    return ""
+
+
+def _build_name_greeting(name: str, language: str) -> str:
+    """Return a natural name acknowledgment string."""
+    if not name or not name.strip():
+        return ""
+    n = name.strip().capitalize()
+    if language == "sw":
+        return f"{n}, "
+    return f"{n}, "
 
 
 class ClaudeClient:
@@ -54,11 +111,15 @@ class ClaudeClient:
         if not self.api_key:
             return self._stub_response(message, language, name)
 
+        # Build a user content string that includes the name so Claude can use it
+        name_context = f"[The user's name is {name.strip()}. Use their name naturally in your reply.]\n\n" if name and name.strip() else ""
+        user_content = f"{name_context}{message}"
+
         payload: Dict[str, Any] = {
             "model": self.model,
-            "max_tokens": 600,
+            "max_tokens": 700,
             "system": SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": message}],
+            "messages": [{"role": "user", "content": user_content}],
         }
 
         headers = {
@@ -82,7 +143,6 @@ class ClaudeClient:
         return self._parse_json_response(text, language, name)
 
     def _parse_json_response(self, text: str, language: str, name: str = "") -> ChatResult:
-        # Strip possible markdown code fences
         clean = text.strip()
         if clean.startswith("```"):
             clean = clean.split("```")[1]
@@ -100,10 +160,18 @@ class ClaudeClient:
         return ChatResult(reply=reply, risk_level=risk_level, hotlines=hotlines)
 
     def _default_reply(self, language: str, name: str = "") -> str:
-        name_greeting = f", {name}," if name else ""
+        greeting = _build_name_greeting(name, language)
         if language == "sw":
-            return f"Asante kwa kufikia{name_greeting} na kuisikiliza. Ujasuri wako wa kuzungumza ni muhimu sana. Fadhali sema kile unachohisi - mwenyewe au haraka yako."
-        return f"I'm here to listen and support you without judgment{name_greeting}. It took courage to reach out. There's no rush—share what feels right for you."
+            return (
+                f"Asante kwa kufikia, {greeting}na kwa ujasiri wa kuzungumza. "
+                "Niko hapa kukusaidia bila kukuhukumu. "
+                "Tafadhali niambie zaidi kuhusu unachopitia — chukua wakati wako."
+            )
+        return (
+            f"Thank you for reaching out, {greeting}and for the courage it took to do so. "
+            "I'm here to listen without judgment. "
+            "Please tell me more about what's been happening — take all the time you need."
+        )
 
     def _default_hotlines(self, language: str) -> List[Dict[str, str]]:
         return [
@@ -117,48 +185,123 @@ class ClaudeClient:
         return any(word in lower for word in urgent_words)
 
     def _stub_response(self, message: str, language: str, name: str = "") -> ChatResult:
-        """Offline demo response with heuristic NLP risk assessment."""
+        """
+        Offline fallback with:
+        - Name acknowledgment
+        - Emotion-matched empathy opener
+        - Risk-appropriate guidance
+        - A gentle follow-up question at the end
+        """
         m = message.lower()
-        critical = ["kill", "dead", "weapon", "gun", "knife", "strangle", "rape", "attack", "murder", "blood"]
-        high = ["hurt", "hit", "beaten", "threatened", "afraid", "scared", "danger", "trapped", "escape", "assault"]
-        medium = ["control", "angry", "yell", "drunk", "jealous", "follow", "isolate", "blame", "money"]
+
+        # ── Risk keyword scoring ──────────────────────────────────────────
+        critical = ["kill", "dead", "weapon", "gun", "knife", "strangle", "rape",
+                    "attack", "murder", "blood", "choke", "stab"]
+        high     = ["hurt", "hit", "beaten", "threatened", "afraid", "scared",
+                    "danger", "trapped", "escape", "assault", "violence", "bruise"]
+        medium   = ["control", "angry", "yell", "drunk", "jealous", "follow",
+                    "isolate", "blame", "money", "shout", "humiliate", "watch"]
 
         crit_count = sum(1 for w in critical if w in m)
         high_count = sum(1 for w in high if w in m)
-        med_count = sum(1 for w in medium if w in m)
+        med_count  = sum(1 for w in medium if w in m)
 
+        # ── Shared building blocks ────────────────────────────────────────
+        greeting     = _build_name_greeting(name, language)
+        empathy_open = _get_empathy_opener(message, language)
+
+        # ── RED ───────────────────────────────────────────────────────────
         if crit_count >= 1 or high_count >= 2:
             risk = "red"
-            name_greeting = f", {name}," if name else ""
+
             if language == "sw":
-                reply = f"Ninahangaika kuhusu usalama wako sasa{name_greeting}. Kile unachokieleza ni hatari sana. Haikufaa kuwa na mpango salama: nenda mahali salama ikiwa wezekana, na kupiga simu 999 (polisi) au 1195 (GVRC) mara moja. Haulii peke yako katika hili."
+                empathy_sw = empathy_open or "Ninakusikia, na ninajali usalama wako sana."
+                reply = (
+                    f"{empathy_sw} "
+                    f"{greeting}kile unachokielezea ni hatari na si kosa lako. "
+                    "Sasa hivi, usalama wako ndio muhimu zaidi. "
+                    "Ikiwa unaweza, nenda mahali salama — nyumba ya jirani, duka, au mahali penye watu. "
+                    "Piga simu 999 (polisi) au 1195 (msaada wa GBV) mara moja ikiwa uko katika hatari. "
+                    "Je, uko mahali salama sasa hivi?"
+                )
             else:
-                reply = f"I'm deeply concerned about your safety right now{name_greeting}. What you're describing sounds dangerous. Please reach out to emergency services: call 999 (police) or 1195 (GVRC hotline) immediately. If you're in immediate danger, prioritize getting to safety. You don't have to face this alone."
+                empathy_en = empathy_open or "I hear you, and I'm deeply concerned about your safety right now."
+                reply = (
+                    f"{empathy_en} "
+                    f"{greeting}what you're describing is serious, and it is not your fault. "
+                    "Your safety is the most important thing right now. "
+                    "If you can, please move somewhere with other people — a neighbour's home, a shop, anywhere public. "
+                    "Call 999 (police) or 1195 (GBV hotline) immediately if you are in danger. "
+                    "Can you tell me — are you somewhere safe right now?"
+                )
+
             hotlines = [
-                {"name": "Kenya Police Emergency", "number": "999", "type": "emergency"},
-                {"name": "GVRC Hotline", "number": "1195", "type": "hotline"},
+                {"name": "Kenya Police Emergency", "number": "999",          "type": "emergency"},
+                {"name": "GVRC National Hotline",  "number": "1195",         "type": "hotline"},
                 {"name": "Wangu Kanja Foundation", "number": "0711 200 400", "type": "organization"},
             ]
+
+        # ── AMBER ─────────────────────────────────────────────────────────
         elif high_count >= 1 or med_count >= 2:
             risk = "amber"
-            name_greeting = f", {name}," if name else ""
+
             if language == "sw":
-                reply = f"Nakusikia wewe{name_greeting} na hili ni kigumu. Kile unachodeskriba inaonyesha hatari. Mpango salama ni mahali pema unaweza kwenda wakati wowote - je, una wanapiga akili, jamaa, au mahali unaweza kumaanisha? Pia, piga simu 1195 kuzungumza na mtaalamu anayejua kuhusu hii."
+                empathy_sw = empathy_open or "Nakusikia, na ninajua hii si rahisi kuzungumza."
+                reply = (
+                    f"{empathy_sw} "
+                    f"{greeting}unastahili kuishi bila woga. "
+                    "Kinachoendelea nyumbani kwako si kawaida, hata kama imekuwa ikijirudia kwa muda mrefu. "
+                    "Kuwa na mpango wa usalama kunaweza kukusaidia — kama vile mtu unayemwamini, "
+                    "mahali unaweza kwenda haraka, na nambari za dharura zilizohifadhiwa. "
+                    "Piga simu 1195 ili kuzungumza na mshauri aliyefunzwa wakati wowote. "
+                    "Je, una mtu unayemwamini ambaye unaweza kumfikia?"
+                )
             else:
-                reply = f"I hear you{name_greeting}, and what you're experiencing matters. Creating a safety plan can help: think about trusted people you could reach out to or safe places you could go. Please also contact 1195 (GVRC) to speak with trained counselors who specialize in supporting survivors. You deserve support."
+                empathy_en = empathy_open or "I hear you, and I'm glad you felt you could share this with me."
+                reply = (
+                    f"{empathy_en} "
+                    f"{greeting}you deserve to live without fear — what you're describing is not normal, "
+                    "even if it has felt that way for a long time. "
+                    "Having a safety plan can make a real difference: a trusted person you can call, "
+                    "a place you can go quickly, and emergency numbers saved somewhere safe. "
+                    "You can also call 1195 any time to speak with a trained counselor confidentially. "
+                    "Is there someone in your life you trust enough to reach out to?"
+                )
+
             hotlines = [
-                {"name": "GVRC Hotline", "number": "1195", "type": "hotline"},
-                {"name": "Kituo cha Sheria (Legal Aid)", "number": "0800 720 185", "type": "legal"},
+                {"name": "GVRC National Hotline",         "number": "1195",         "type": "hotline"},
+                {"name": "Kituo cha Sheria (Legal Aid)",  "number": "0800 720 185", "type": "legal"},
             ]
+
+        # ── GREEN ─────────────────────────────────────────────────────────
         else:
             risk = "green"
-            name_greeting = f", {name}," if name else ""
+
             if language == "sw":
-                reply = f"Asante kwa kufikia{name_greeting} - ujasuri wako ni muhimu. Niko hapa kuisikiliza bila kuhukumu. Kila kile unachohisi ni halali. Unaweza kusoma zaidi juu ya huduma za kusaidiana, kupata mawasiliano ya walisaidiana, au kuzungumza na mtu - yote hapa. Ukumbuke: wewe si peke yako."
+                empathy_sw = empathy_open or "Asante kwa ujasiri wa kufikia — hii inahitaji moyo mkubwa."
+                reply = (
+                    f"{empathy_sw} "
+                    f"{greeting}niko hapa kukusaidia bila kukuhukumu. "
+                    "Hisia zako ni za kweli na zinastahili kusikizwa. "
+                    "Unaweza kuchunguza rasilimali, kuzungumza na mtu, au tu kushiriki zaidi — "
+                    "chochote unachohisi tayari kufanya. "
+                    "Kumbuka: wewe si peke yako, na kinachotokea si kosa lako. "
+                    "Ni nini kinachokusumbua zaidi sasa hivi?"
+                )
             else:
-                reply = f"Thank you for reaching out{name_greeting}—your courage matters. I'm here to listen without judgment. Your feelings are valid. You can explore support options, connect with others who've been through this, or simply talk. Remember: you're not alone, and what happened was not your fault."
+                empathy_en = empathy_open or "Thank you for reaching out — it takes real courage to take this step."
+                reply = (
+                    f"{empathy_en} "
+                    f"{greeting}I'm here to listen without any judgment. "
+                    "Your feelings are valid, and you deserve to be heard. "
+                    "We can explore support options together, or you can simply share more about what's been happening — "
+                    "there's no pressure to do anything before you're ready. "
+                    "Remember: you are not alone in this. "
+                    "What's been weighing on you most?"
+                )
+
             hotlines = [
-                {"name": "GVRC Hotline", "number": "1195", "type": "hotline"},
+                {"name": "GVRC National Hotline", "number": "1195", "type": "hotline"},
             ]
 
         return ChatResult(reply=reply, risk_level=risk, hotlines=hotlines)
