@@ -2,18 +2,16 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:80
 export const APP_NAME = 'Lifeline'
 export const DEFAULT_LANGUAGE = 'en'
 
-// 4-level risk system — matches backend claude.py and report spec
 export const RISK_LEVELS = {
-  low:      { label: 'Low',      color: '#3B6D11', bg: '#EAF3DE' },
-  medium:   { label: 'Medium',   color: '#854F0B', bg: '#FAEEDA' },
-  high:     { label: 'High',     color: '#A32D2D', bg: '#FCEBEB' },
-  critical: { label: 'Critical', color: '#7B1C1C', bg: '#F7C1C1' },
+  green: { label: 'Low Risk', color: '#22c55e' },
+  amber: { label: 'Medium Risk', color: '#f59e0b' },
+  red: { label: 'High Risk', color: '#ef4444' },
 }
 
 export const STORAGE_KEYS = {
   ADMIN_TOKEN: 'lifeline_admin_token',
-  SESSION_ID:  'lifeline_session_id',
-  LANGUAGE:    'lifeline_lang',
+  SESSION_ID: 'lifeline_session_id',
+  LANGUAGE: 'lifeline_lang',
 }
 
 export function getSessionId() {

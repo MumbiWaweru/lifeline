@@ -3,15 +3,14 @@ Lifeline AI Service - claude.py
 Empathetic, situation-aware responses for GBV survivors.
 Covers: physical harm, financial abuse, emotional abuse, sexual violence,
         online/digital abuse, child abuse, and compound situations.
-
-Risk levels: low | medium | high | critical  (4-level, matches report spec)
 """
 
 import os
+import re
 from typing import Optional
 
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
 
 # ─────────────────────────────────────────────
 #  ONLINE MODE  –  Claude API system prompt
@@ -72,16 +71,16 @@ COMPOUND SITUATIONS (multiple forms of abuse, or abuse + financial dependency)
 - Start with whichever harm feels most urgent to the person.
 - Affirm that complexity is normal; support is still available.
 
-RISK LEVEL GUIDANCE — you MUST include one of these tags at the very end of every response:
-[RISK:critical] — weapon present, immediate threat to life, active assault happening now
-[RISK:high]     — serious physical/sexual harm described, person unsafe right now
-[RISK:medium]   — emotional/financial/digital abuse, safety concern but not immediate danger
-[RISK:low]      — seeking information, unsure if it's abuse, general support
+RISK LEVEL GUIDANCE
+- green: Supportive conversation, self-care, resources.
+- amber: Safety planning, escalation options, immediate support numbers.
+- red: Prioritise immediate safety. Surface emergency contacts prominently. 
+       Offer to help them create a quick safety plan.
 
 ALWAYS END WITH
 - A reminder that they are not alone.
 - At least one concrete next step they can choose to take.
-- In HIGH-RISK or CRITICAL situations, include: Emergency: 999 or 112 | GBV Recovery: 0800 720 990 (free, 24/7)
+- In HIGH-RISK situations, include: Emergency: 999 or 112 | GBV Recovery: 0800 720 990 (free, 24/7)
 
 WHAT TO NEVER DO
 - Never end a response with only a list of numbers and no human words.
@@ -95,99 +94,37 @@ WHAT TO NEVER DO
 # ─────────────────────────────────────────────
 
 # Each entry: (keyword_list, risk_level, english_response, swahili_response)
-# risk_level is now one of: "low" | "medium" | "high" | "critical"
 RESPONSE_RULES = [
 
-    # ── CRITICAL: IMMEDIATE THREAT TO LIFE ───────────────────────────────────
+    # ── IMMEDIATE DANGER ──────────────────────────────────────────────────────
     (
-        ["kill me", "going to kill", "will kill", "ataniua", "ananiua",
-         "knife to my", "gun", "weapon", "strangling", "choking",
-         "i can't breathe", "he has a weapon", "threatening to kill"],
-        "critical",
+        ["kill me", "going to kill", "will kill", "ataniua", "ananiua", "knife", "gun", "weapon",
+         "strangling", "choking", "i can't breathe", "he has a"],
+        "red",
         (
             "What you're describing sounds extremely dangerous, and I want you to know — your life matters. "
-            "Please, if you can do so safely, move away from that person right now.\n\n"
-            "📞 Call 999 or 112 immediately.\n"
-            "📞 Free GBV Recovery Line (24/7): 0800 720 990\n\n"
+            "Please, if you can do so safely, move away from that person right now. "
+            "Call 999 or 112 immediately. You can also reach the free GBV Recovery line: 0800 720 990 (available 24/7).\n\n"
             "If you can't speak safely, you can text a trusted person your location. "
             "Your safety comes first — we can talk through everything else once you are somewhere safer. "
             "You are not alone in this."
         ),
         (
             "Unachokielezea kinasikika hatari sana, na nataka ujue — maisha yako yana thamani. "
-            "Tafadhali, kama unaweza kufanya hivyo salama, toka mbali na mtu huyo sasa hivi.\n\n"
-            "📞 Piga simu 999 au 112 mara moja.\n"
-            "📞 Laini ya GBV Recovery bure (masaa 24/7): 0800 720 990\n\n"
+            "Tafadhali, kama unaweza kufanya hivyo salama, toka mbali na mtu huyo sasa hivi. "
+            "Piga simu 999 au 112 mara moja. Unaweza pia kuwasiliana na laini ya GBV Recovery bure: 0800 720 990 (inapatikana masaa 24/7).\n\n"
             "Kama huwezi kuzungumza salama, unaweza kutumia ujumbe kwa mtu unayemwamini mahali ulipo. "
             "Usalama wako ndio unaokuja kwanza — tunaweza kuzungumza kuhusu kila kitu kingine ukiwa mahali salama. "
             "Huko peke yako katika hili."
         ),
     ),
 
-    # ── SEXUAL VIOLENCE (also critical) ──────────────────────────────────────
-    (
-        ["raped", "rape", "sexual", "forced me", "touched me", "ubakaji",
-         "alibaka", "anabaka", "forced sex", "marital rape", "ndoa ubakaji",
-         "sexually assaulted", "assault"],
-        "critical",
-        (
-            "I believe you. What happened to you was not your fault — not in any way, not at all.\n\n"
-            "Sexual violence, including within marriage, is a crime in Kenya. You have done nothing wrong.\n\n"
-            "If this happened recently (within 72 hours), there is medical care that can help — "
-            "including treatment to prevent infections and, if needed, emergency contraception. "
-            "This care is available at the Gender Violence Recovery Centre and Nairobi Women's Hospital.\n\n"
-            "You don't have to report to the police right now if you're not ready. But if you want to, "
-            "evidence matters, and a medical professional can help preserve it.\n\n"
-            "📞 GBV Recovery Line (free, 24/7): 0800 720 990\n"
-            "📞 Nairobi Women's Hospital GBV: 0719 638 006\n\n"
-            "You are incredibly brave for reaching out. Whatever you need next, I'm here."
-        ),
-        (
-            "Nakuamini. Kilichokupata haukustahili — kwa njia yoyote, hata kidogo.\n\n"
-            "Jeuri ya kingono, ikiwemo ndani ya ndoa, ni uhalifu nchini Kenya. Hujafanya kosa lolote.\n\n"
-            "Kama hii ilitokea hivi karibuni (ndani ya masaa 72), kuna matibabu yanayoweza kusaidia — "
-            "ikiwemo matibabu kuzuia maambukizo na, ikihitajika, uzazi wa mpango wa dharura. "
-            "Huduma hii inapatikana katika Kituo cha Urejeleaji wa Jeuri ya Kijinsia na Hospitali ya Wanawake ya Nairobi.\n\n"
-            "Huhitaji kuripoti kwa polisi sasa hivi kama hujawa tayari. Lakini ukitaka, "
-            "ushahidi una umuhimu, na mtaalamu wa matibabu anaweza kusaidia kuuhifadhi.\n\n"
-            "📞 Laini ya GBV Recovery (bure, masaa 24/7): 0800 720 990\n"
-            "📞 GBV ya Hospitali ya Wanawake ya Nairobi: 0719 638 006\n\n"
-            "Unashujaa sana kwa kutafuta msaada. Chochote unachohitaji kinachofuata, niko hapa."
-        ),
-    ),
-
-    # ── CHILD ABUSE (critical) ────────────────────────────────────────────────
-    (
-        ["child", "mtoto", "children", "watoto", "daughter", "binti", "son", "mwana",
-         "minor", "kid", "baby", "mdogo", "abuse my child", "hurting my child",
-         "anaumiza mtoto", "school", "shule"],
-        "critical",
-        (
-            "Your concern for this child is so important, and reaching out was exactly the right thing to do.\n\n"
-            "Children cannot protect themselves from adults who harm them — that's why people like you, "
-            "who notice and speak up, matter so much.\n\n"
-            "📞 Childline Kenya (free, 24/7): 116\n\n"
-            "If the child is in immediate physical danger, call 999 or 112 now.\n\n"
-            "You are not betraying anyone by protecting a child. "
-            "You are doing exactly what a caring person does."
-        ),
-        (
-            "Wasiwasi wako kwa mtoto huyu ni muhimu sana, na kutafuta msaada ilikuwa jambo sahihi kufanya.\n\n"
-            "Watoto hawawezi kujilinda dhidi ya watu wazima wanaowaumiza — ndiyo maana watu kama wewe, "
-            "wanaogundua na kusema, wana umuhimu mkubwa sana.\n\n"
-            "📞 Childline Kenya (bure, masaa 24/7): 116\n\n"
-            "Kama mtoto yuko katika hatari ya haraka ya kimwili, piga simu 999 au 112 sasa.\n\n"
-            "Husaliti mtu yeyote kwa kulinda mtoto. "
-            "Unafanya hasa kile ambacho mtu mwenye huruma hufanya."
-        ),
-    ),
-
-    # ── PHYSICAL HARM (high) ──────────────────────────────────────────────────
+    # ── PHYSICAL HARM ─────────────────────────────────────────────────────────
     (
         ["hit", "beat", "slap", "punch", "kick", "pushed", "shoved", "burned", "burnt",
          "injured", "bruise", "broken bone", "hospital", "anipiga", "ananipiga", "alipiga",
          "physical", "hurt me", "hurting me", "he hurt", "she hurt"],
-        "high",
+        "amber",
         (
             "I'm so sorry this happened to you. What you experienced — being physically hurt by someone "
             "who should be safe — is never okay, and it is never your fault.\n\n"
@@ -212,49 +149,13 @@ RESPONSE_RULES = [
         ),
     ),
 
-    # ── LEAVING / WANTING TO LEAVE (high) ────────────────────────────────────
+    # ── FINANCIAL / ECONOMIC ABUSE ────────────────────────────────────────────
     (
-        ["leave", "leaving", "escape", "run away", "get out", "want to go", "can't leave",
-         "afraid to leave", "where can i go", "nataka kwenda", "kutoroka",
-         "ningetaka kuondoka", "acha", "nina hofu ya kwenda", "wapi niweze kwenda"],
-        "high",
-        (
-            "Wanting to leave takes courage — and the fear you feel about leaving is completely valid. "
-            "Leaving is often the most dangerous time in an abusive relationship, and it's wise to plan carefully.\n\n"
-            "You don't have to leave tonight if it's not safe to do so. But planning ahead can make it safer when you do.\n\n"
-            "A safety plan might include:\n"
-            "• Identifying a trusted person who can help you — a friend, relative, neighbour.\n"
-            "• Keeping important documents (ID, birth certificates, financial records) accessible or with someone safe.\n"
-            "• Having a small bag ready with essentials — clothes, medication, phone charger, cash.\n"
-            "• Memorising key phone numbers in case your phone is taken.\n\n"
-            "There are shelters in Kenya that can take you in — safely and confidentially:\n"
-            "📞 GBV Recovery Line (free, 24/7): 0800 720 990\n"
-            "📞 FIDA Kenya: 020 3875369\n\n"
-            "You deserve a life where you feel safe. Let's figure out the next step together."
-        ),
-        (
-            "Kutaka kwenda kunachukua ujasiri — na hofu unayohisi kuhusu kwenda ni sahihi kabisa. "
-            "Kuondoka mara nyingi ni wakati hatari zaidi katika uhusiano wa unyanyasaji, na ni busara kupanga kwa makini.\n\n"
-            "Huhitaji kuondoka usiku huu kama si salama kufanya hivyo. Lakini kupanga mapema kunaweza kuifanya salama zaidi utakapofanya hivyo.\n\n"
-            "Mpango wa usalama unaweza kujumuisha:\n"
-            "• Kutambua mtu unayemwamini ambaye anaweza kukusaidia — rafiki, ndugu, jirani.\n"
-            "• Kuweka nyaraka muhimu (kitambulisho, vyeti vya kuzaliwa, kumbukumbu za kifedha) zinazopatikana au kwa mtu salama.\n"
-            "• Kuwa na begi ndogo tayari na vitu muhimu — nguo, dawa, chaja ya simu, pesa taslimu.\n"
-            "• Kukariri nambari muhimu za simu kwa sababu simu yako inaweza kuchukuliwa.\n\n"
-            "Kuna makazi nchini Kenya ambayo yanaweza kukupokea — kwa usalama na usiri:\n"
-            "📞 Laini ya GBV Recovery (bure, masaa 24/7): 0800 720 990\n"
-            "📞 FIDA Kenya: 020 3875369\n\n"
-            "Unastahili maisha ambapo unajisikia salama. Hebu tujue hatua inayofuata pamoja."
-        ),
-    ),
-
-    # ── FINANCIAL / ECONOMIC ABUSE (medium) ──────────────────────────────────
-    (
-        ["money", "pesa", "salary", "mshahara", "account", "akaunti", "bank",
-         "taking my", "controls my", "won't let me work", "took my", "alichukua",
-         "anachukua", "can't afford", "left me with nothing", "financial", "economic",
-         "debt", "deni", "no food", "hakuna chakula", "can't pay", "bills", "rent"],
-        "medium",
+        ["money", "pesa", "salary", "mshahara", "account", "akaunti", "bank", "taking my",
+         "controls my", "won't let me work", "took my", "alichukua", "anachukua",
+         "can't afford", "left me with nothing", "financial", "economic", "debt", "deni",
+         "no food", "hakuna chakula", "can't pay", "bills", "rent"],
+        "amber",
         (
             "What you're describing is financial abuse — and it is a recognised, serious form of "
             "gender-based violence. Being cut off from money, having your income controlled or taken, "
@@ -285,13 +186,44 @@ RESPONSE_RULES = [
         ),
     ),
 
-    # ── EMOTIONAL / PSYCHOLOGICAL ABUSE (medium) ─────────────────────────────
+    # ── SEXUAL VIOLENCE ───────────────────────────────────────────────────────
+    (
+        ["raped", "rape", "sexual", "forced me", "touched me", "ubakaji", "alibaka", "anabaka",
+         "forced sex", "marital rape", "ndoa ubakaji", "sexually assaulted", "assault"],
+        "red",
+        (
+            "I believe you. What happened to you was not your fault — not in any way, not at all.\n\n"
+            "Sexual violence, including within marriage, is a crime in Kenya. You have done nothing wrong.\n\n"
+            "If this happened recently (within 72 hours), there is medical care that can help — "
+            "including treatment to prevent infections and, if needed, emergency contraception. "
+            "This care is available at the Gender Violence Recovery Centre and Nairobi Women's Hospital.\n\n"
+            "You don't have to report to the police right now if you're not ready. But if you want to, "
+            "evidence matters, and a medical professional can help preserve it.\n\n"
+            "📞 GBV Recovery Line (free, 24/7): 0800 720 990\n"
+            "📞 Nairobi Women's Hospital GBV: 0719 638 006\n\n"
+            "You are incredibly brave for reaching out. Whatever you need next, I'm here."
+        ),
+        (
+            "Nakuamini. Kilichokupata haukustahili — kwa njia yoyote, hata kidogo.\n\n"
+            "Jeuri ya kingono, ikiwemo ndani ya ndoa, ni uhalifu nchini Kenya. Hujafanya kosa lolote.\n\n"
+            "Kama hii ilitokea hivi karibuni (ndani ya masaa 72), kuna matibabu yanayoweza kusaidia — "
+            "ikiwemo matibabu kuzuia maambukizo na, ikihitajika, uzazi wa mpango wa dharura. "
+            "Huduma hii inapatikana katika Kituo cha Urejeleaji wa Jeuri ya Kijinsia na Hospitali ya Wanawake ya Nairobi.\n\n"
+            "Huhitaji kuripoti kwa polisi sasa hivi kama hujawa tayari. Lakini ukitaka, "
+            "ushahidi una umuhimu, na mtaalamu wa matibabu anaweza kusaidia kuuhifadhi.\n\n"
+            "📞 Laini ya GBV Recovery (bure, masaa 24/7): 0800 720 990\n"
+            "📞 GBV ya Hospitali ya Wanawake ya Nairobi: 0719 638 006\n\n"
+            "Unashujaa sana kwa kutafuta msaada. Chochote unachohitaji kinachofuata, niko hapa."
+        ),
+    ),
+
+    # ── EMOTIONAL / PSYCHOLOGICAL ABUSE ──────────────────────────────────────
     (
         ["shout", "yell", "scream", "threaten", "threat", "control", "isolate", "isolated",
          "jealous", "humiliate", "embarrass", "insult", "call me names", "crazy", "worthless",
          "manipulate", "gaslight", "no one will believe", "you're nothing", "stupid",
          "kutishia", "kudhibiti", "kudhalilisha", "kutengwa"],
-        "medium",
+        "amber",
         (
             "What you're describing is emotional and psychological abuse — and it is real, "
             "even when there are no visible marks. Abuse doesn't have to leave a bruise to cause serious harm.\n\n"
@@ -318,12 +250,40 @@ RESPONSE_RULES = [
         ),
     ),
 
-    # ── DIGITAL / ONLINE ABUSE (medium) ──────────────────────────────────────
+    # ── CHILD ABUSE ───────────────────────────────────────────────────────────
+    (
+        ["child", "mtoto", "children", "watoto", "daughter", "binti", "son", "mwana",
+         "minor", "kid", "baby", "mdogo", "abuse my child", "hurting my child",
+         "anaumiza mtoto", "school", "shule"],
+        "red",
+        (
+            "Your concern for this child is so important, and reaching out was exactly the right thing to do.\n\n"
+            "Children cannot protect themselves from adults who harm them — that's why people like you, "
+            "who notice and speak up, matter so much.\n\n"
+            "Please contact Childline Kenya right away — it's free, confidential, and available 24/7:\n"
+            "📞 Childline Kenya: 116\n\n"
+            "If the child is in immediate physical danger, call 999 or 112 now.\n\n"
+            "You are not betraying anyone by protecting a child. "
+            "You are doing exactly what a caring person does."
+        ),
+        (
+            "Wasiwasi wako kwa mtoto huyu ni muhimu sana, na kutafuta msaada ilikuwa jambo sahihi kufanya.\n\n"
+            "Watoto hawawezi kujilinda dhidi ya watu wazima wanaowaumiza — ndiyo maana watu kama wewe, "
+            "wanaogundua na kusema, wana umuhimu mkubwa sana.\n\n"
+            "Tafadhali wasiliana na Childline Kenya mara moja — ni bure, ya siri, na inapatikana masaa 24/7:\n"
+            "📞 Childline Kenya: 116\n\n"
+            "Kama mtoto yuko katika hatari ya haraka ya kimwili, piga simu 999 au 112 sasa.\n\n"
+            "Husaliti mtu yeyote kwa kulinda mtoto. "
+            "Unafanya hasa kile ambacho mtu mwenye huruma hufanya."
+        ),
+    ),
+
+    # ── DIGITAL / ONLINE ABUSE ────────────────────────────────────────────────
     (
         ["photos", "picha", "video", "online", "mtandao", "social media", "whatsapp",
-         "shared my", "posted", "hacked", "tracking", "spying", "location",
+         "shared my", "posted", "hackd", "hacked", "tracking", "spying", "location",
          "threats online", "cyber", "internet", "blackmail", "mafisadi"],
-        "medium",
+        "amber",
         (
             "What's happening to you online is a real form of abuse — and it causes real harm, "
             "even if some people don't take it seriously. You are right to take it seriously.\n\n"
@@ -353,12 +313,48 @@ RESPONSE_RULES = [
         ),
     ),
 
-    # ── UNSURE / NOT RECOGNISING ABUSE (low) ─────────────────────────────────
+    # ── LEAVING / WANTING TO LEAVE ────────────────────────────────────────────
+    (
+        ["leave", "leaving", "escape", "run away", "get out", "want to go", "can't leave",
+         "afraid to leave", "where can i go", "nataka kwenda", "kutoroka", "ningetaka kuondoka",
+         "acha", "nina hofu ya kwenda", "wapi niweze kwenda"],
+        "amber",
+        (
+            "Wanting to leave takes courage — and the fear you feel about leaving is completely valid. "
+            "Leaving is often the most dangerous time in an abusive relationship, and it's wise to plan carefully.\n\n"
+            "You don't have to leave tonight if it's not safe to do so. But planning ahead can make it safer when you do.\n\n"
+            "A safety plan might include:\n"
+            "• Identifying a trusted person who can help you — a friend, relative, neighbour.\n"
+            "• Keeping important documents (ID, birth certificates, financial records) accessible or with someone safe.\n"
+            "• Having a small bag ready with essentials — clothes, medication, phone charger, cash.\n"
+            "• Memorising key phone numbers in case your phone is taken.\n\n"
+            "There are shelters in Kenya that can take you in — safely and confidentially:\n"
+            "📞 GBV Recovery Line (free, 24/7): 0800 720 990\n"
+            "📞 FIDA Kenya: 020 3875369\n\n"
+            "You deserve a life where you feel safe. Let's figure out the next step together."
+        ),
+        (
+            "Kutaka kwenda kunachukua ujasiri — na hofu unayohisi kuhusu kwenda ni sahihi kabisa. "
+            "Kuondoka mara nyingi ni wakati hatari zaidi katika uhusiano wa unyanyasaji, na ni busara kupanga kwa makini.\n\n"
+            "Huhitaji kuondoka usiku huu kama si salama kufanya hivyo. Lakini kupanga mapema kunaweza kuifanya salama zaidi utakapofanya hivyo.\n\n"
+            "Mpango wa usalama unaweza kujumuisha:\n"
+            "• Kutambua mtu unayemwamini ambaye anaweza kukusaidia — rafiki, ndugu, jirani.\n"
+            "• Kuweka nyaraka muhimu (kitambulisho, vyeti vya kuzaliwa, kumbukumbu za kifedha) zinazopatikana au kwa mtu salama.\n"
+            "• Kuwa na begi ndogo tayari na vitu muhimu — nguo, dawa, chaja ya simu, pesa taslimu.\n"
+            "• Kukariri nambari muhimu za simu kwa sababu simu yako inaweza kuchukuliwa.\n\n"
+            "Kuna makazi nchini Kenya ambayo yanaweza kukupokea — kwa usalama na usiri:\n"
+            "📞 Laini ya GBV Recovery (bure, masaa 24/7): 0800 720 990\n"
+            "📞 FIDA Kenya: 020 3875369\n\n"
+            "Unastahili maisha ambapo unajisikia salama. Hebu tujue hatua inayofuata pamoja."
+        ),
+    ),
+
+    # ── UNSURE / NOT RECOGNISING ABUSE ───────────────────────────────────────
     (
         ["not sure", "i don't know", "sijui", "maybe it's my fault", "labda ni kosa langu",
          "am i overreacting", "is this abuse", "is this normal", "he loves me", "she loves me",
          "it's complicated", "confused", "ninachanganyikiwa"],
-        "low",
+        "green",
         (
             "It takes real courage to even ask that question — 'is this abuse?' — and the fact that "
             "you're asking it tells me something important: something doesn't feel right to you.\n\n"
@@ -385,11 +381,11 @@ RESPONSE_RULES = [
         ),
     ),
 
-    # ── GENERAL HELP / FIRST CONTACT (low) ───────────────────────────────────
+    # ── GENERAL HELP / FIRST CONTACT ─────────────────────────────────────────
     (
         ["help", "msaada", "support", "need help", "nahitaji msaada", "i need", "what do i do",
          "nifanye nini", "please", "tafadhali", "i'm scared", "ninaogopa", "afraid", "hofu"],
-        "low",
+        "green",
         (
             "I'm really glad you reached out. Whatever brought you here today, you don't have to face it alone.\n\n"
             "This is a safe, confidential space. Nothing you share here will be used against you. "
@@ -410,7 +406,7 @@ RESPONSE_RULES = [
 # Fallback when no rule matches
 FALLBACK_RESPONSES = {
     "en": (
-        "low",
+        "green",
         (
             "Thank you for trusting me with this. I want to make sure I understand what you're going through.\n\n"
             "Could you tell me a little more about your situation? "
@@ -421,7 +417,7 @@ FALLBACK_RESPONSES = {
         ),
     ),
     "sw": (
-        "low",
+        "green",
         (
             "Asante kwa kuniambia hili. Nataka kuhakikisha ninaelewa unachopitia.\n\n"
             "Je, unaweza kunieleza zaidi kidogo kuhusu hali yako? "
@@ -435,7 +431,7 @@ FALLBACK_RESPONSES = {
 
 
 # ─────────────────────────────────────────────
-#  HELPERS
+#  CORE LOGIC
 # ─────────────────────────────────────────────
 
 def detect_language(text: str) -> str:
@@ -456,15 +452,9 @@ def match_response(text: str, language: str):
     best_match = None
     best_score = 0
 
-    # Priority order for risk levels when scores tie
-    risk_priority = {"critical": 4, "high": 3, "medium": 2, "low": 1}
-
     for keywords, risk, en_response, sw_response in RESPONSE_RULES:
         score = sum(1 for kw in keywords if kw in text_lower)
-        if score > best_score or (
-            score == best_score and best_match and
-            risk_priority.get(risk, 0) > risk_priority.get(best_match[0], 0)
-        ):
+        if score > best_score:
             best_score = score
             response_text = sw_response if language == "sw" else en_response
             best_match = (risk, response_text)
@@ -477,8 +467,8 @@ def match_response(text: str, language: str):
 
 
 def build_hotlines(risk_level: str, language: str) -> str:
-    """Append hotlines for medium/high/critical situations."""
-    if risk_level == "low":
+    """Append hotlines for amber/red situations."""
+    if risk_level == "green":
         return ""
     if language == "sw":
         return (
@@ -497,29 +487,6 @@ def build_hotlines(risk_level: str, language: str) -> str:
     )
 
 
-def extract_risk_from_claude_response(text: str) -> str:
-    """Extract the [RISK:level] tag that Claude embeds in its response."""
-    import re
-    match = re.search(r'\[RISK:(critical|high|medium|low)\]', text, re.IGNORECASE)
-    if match:
-        return match.group(1).lower()
-    # Fallback: infer from keywords in response
-    text_lower = text.lower()
-    if any(w in text_lower for w in ["999", "112", "immediate danger", "weapon", "call now"]):
-        return "critical"
-    if any(w in text_lower for w in ["emergency", "shelter", "safety plan", "unsafe"]):
-        return "high"
-    if any(w in text_lower for w in ["0800", "medical", "report", "counsellor"]):
-        return "medium"
-    return "low"
-
-
-def strip_risk_tag(text: str) -> str:
-    """Remove the [RISK:...] tag from the response before sending to user."""
-    import re
-    return re.sub(r'\s*\[RISK:(critical|high|medium|low)\]', '', text, flags=re.IGNORECASE).strip()
-
-
 # ─────────────────────────────────────────────
 #  PUBLIC API
 # ─────────────────────────────────────────────
@@ -531,7 +498,6 @@ async def get_ai_response(
 ) -> dict:
     """
     Returns { "response": str, "risk_level": str }
-    risk_level is one of: "low" | "medium" | "high" | "critical"
     Tries Claude API first; falls back to empathetic rule-based stub.
     """
     detected_lang = detect_language(message) if language == "en" else language
@@ -544,7 +510,7 @@ async def get_ai_response(
 
             messages = []
             if conversation_history:
-                for turn in conversation_history[-8:]:
+                for turn in conversation_history[-8:]:  # keep last 4 exchanges
                     messages.append({"role": turn["role"], "content": turn["content"]})
             messages.append({"role": "user", "content": message})
 
@@ -555,13 +521,19 @@ async def get_ai_response(
                 messages=messages,
             )
 
-            raw_text = completion.content[0].text
-            risk = extract_risk_from_claude_response(raw_text)
-            clean_response = strip_risk_tag(raw_text)
+            response_text = completion.content[0].text
 
-            return {"response": clean_response, "risk_level": risk}
+            # Infer risk from response content (Claude will signal in its reply)
+            risk = "green"
+            if any(w in response_text.lower() for w in ["999", "112", "immediate", "emergency", "danger"]):
+                risk = "red"
+            elif any(w in response_text.lower() for w in ["0800", "shelter", "safety plan", "medical", "report"]):
+                risk = "amber"
+
+            return {"response": response_text, "risk_level": risk}
 
         except Exception as e:
+            # Fall through to stub
             print(f"[Lifeline] Claude API error, using offline stub: {e}")
 
     # ── Offline stub ─────────────────────────────────────────────────────

@@ -1,7 +1,5 @@
-// api.ts
-// Centralised API client with React Query hooks, JWT management, auto-expiry,
-// and plain function exports (adminApi, chatApi, counsellorsApi, resourcesApi, healthApi)
-// that the JSX pages import directly.
+// api/index.ts
+// Centralised API client with React Query hooks, JWT management, auto-expiry.
 
 import axios, { AxiosError } from 'axios'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -16,7 +14,7 @@ export const apiClient = axios.create({
 
 // Attach JWT on every request
 apiClient.interceptors.request.use(config => {
-  const token = localStorage.getItem('token') || localStorage.getItem('lifeline_admin_token')
+  const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -28,8 +26,7 @@ apiClient.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('role')
-      localStorage.removeItem('lifeline_admin_token')
-      window.location.href = '/admin/login'
+      window.location.href = '/login'
     }
     return Promise.reject(err)
   }
@@ -44,7 +41,7 @@ export interface RiskAssessmentResult {
   id: string
   risk_level: RiskLevel
   confidence: number
-  explanation: Record<string, number>
+  explanation: Record<string, number>  // phrase → score
   model_version: string
   processing_ms: number
 }
@@ -94,34 +91,9 @@ export interface Alert {
   created_at: string
 }
 
-export interface Conversation {
-  session_id: string
-  risk_level: RiskLevel
-  language: string
-  is_flagged?: boolean
-  created_at: string
-  messages: { sender: string; content: string; created_at: string }[]
-}
-
-export interface Counsellor {
-  id: string
-  name: string
-  specialization?: string
-  is_available: boolean
-  organization?: string
-}
-
-export interface CounsellorRequest {
-  id: string
-  counsellor_id: string
-  session_id: string
-  status: 'pending' | 'accepted' | 'declined'
-  created_at: string
-}
-
 
 // ─── Auth helpers ──────────────────────────────────────────────────────────────
-export const getToken   = () => localStorage.getItem('token') || localStorage.getItem('lifeline_admin_token')
+export const getToken   = () => localStorage.getItem('token')
 export const getRole    = () => localStorage.getItem('role') as UserRole | null
 export const isLoggedIn = () => !!getToken()
 
@@ -129,117 +101,12 @@ export function logout() {
   apiClient.post('/auth/logout').finally(() => {
     localStorage.removeItem('token')
     localStorage.removeItem('role')
-    localStorage.removeItem('lifeline_admin_token')
-    window.location.href = '/admin/login'
+    window.location.href = '/login'
   })
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  PLAIN FUNCTION EXPORTS
-//  These are what your JSX pages import:
-//  import { adminApi, chatApi, counsellorsApi, resourcesApi, healthApi } from '../../services/api'
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ── healthApi ─────────────────────────────────────────────────────────────────
-export const healthApi = {
-  check: () =>
-    apiClient.get('/health').then(r => r.data),
-}
-
-// ── chatApi ───────────────────────────────────────────────────────────────────
-export const chatApi = {
-  sendMessage: (data: {
-    message: string
-    language?: string
-    session_id: string
-    name?: string
-  }) =>
-    apiClient.post('/chat', data).then(r => r.data),
-}
-
-// ── adminApi ──────────────────────────────────────────────────────────────────
-export const adminApi = {
-  login: (password: string) =>
-    apiClient.post('/admin/login', { password }).then(r => {
-      const token = r.data.token
-      localStorage.setItem('lifeline_admin_token', token)
-      return r.data
-    }),
-
-  logout: () => {
-    localStorage.removeItem('lifeline_admin_token')
-    window.location.href = '/admin/login'
-  },
-
-  getStats: () =>
-    apiClient.get('/admin/stats').then(r => r.data),
-
-  getConversations: (flaggedOnly = false) =>
-    apiClient
-      .get('/admin/conversations', { params: flaggedOnly ? { flagged: true } : {} })
-      .then(r => r.data),
-
-  getAlerts: () =>
-    apiClient.get('/admin/alerts').then(r => r.data),
-
-  acknowledgeAlert: (alertId: string) =>
-    apiClient.post(`/admin/alerts/${alertId}/acknowledge`).then(r => r.data),
-
-  getAnalytics: () =>
-    apiClient.get('/admin/analytics').then(r => r.data),
-}
-
-// ── resourcesApi ──────────────────────────────────────────────────────────────
-export const resourcesApi = {
-  getByLocation: (location: string, language = 'en') =>
-    apiClient
-      .get('/resources', { params: { location, language } })
-      .then(r => r.data),
-
-  getAll: () =>
-    apiClient.get('/resources').then(r => r.data),
-
-  create: (data: Partial<ResourceService>) =>
-    apiClient.post('/resources', data).then(r => r.data),
-
-  update: (id: string, data: Partial<ResourceService>) =>
-    apiClient.put(`/resources/${id}`, data).then(r => r.data),
-
-  delete: (id: string) =>
-    apiClient.delete(`/resources/${id}`).then(r => r.data),
-}
-
-// ── counsellorsApi ────────────────────────────────────────────────────────────
-export const counsellorsApi = {
-  // Survivor-facing
-  getAll: () =>
-    apiClient.get('/counsellors/').then(r => r.data),
-
-  requestCounsellor: (data: { counsellor_id: string; session_id: string; message?: string }) =>
-    apiClient.post('/counsellors/request', data).then(r => r.data),
-
-  // Admin-facing
-  getAllCounsellors: () =>
-    apiClient.get('/counsellors/admin/counsellors').then(r => r.data),
-
-  createCounsellor: (data: Partial<Counsellor>) =>
-    apiClient.post('/counsellors/admin/counsellors', data).then(r => r.data),
-
-  deleteCounsellor: (id: string) =>
-    apiClient.delete(`/counsellors/admin/counsellors/${id}`).then(r => r.data),
-
-  getAllRequests: () =>
-    apiClient.get('/counsellors/admin/requests').then(r => r.data),
-
-  updateRequestStatus: (id: string, status: 'accepted' | 'declined') =>
-    apiClient.patch(`/counsellors/admin/requests/${id}`, { status }).then(r => r.data),
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  REACT QUERY HOOKS  (unchanged from original)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── React Query hooks ─────────────────────────────────────────────────────────
 
 /** POST /assess — run risk assessment */
 export function useRiskAssessment() {
@@ -270,7 +137,7 @@ export function useMessages(caseId: string | null) {
     queryFn: () =>
       apiClient.get(`/messages/${caseId}`).then(r => r.data),
     enabled: !!caseId,
-    refetchInterval: false,
+    refetchInterval: false,  // Real-time via Socket.io; manual refetch on new message
     staleTime: 30_000,
   })
 }
