@@ -1,13 +1,13 @@
-"""Chat endpoint connecting the frontend to Gemini and the database."""
+"""Chat endpoint connecting the frontend to OpenRouter and the database."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies import get_gemini_client
+from ..dependencies import get_chat_client
 from ..models import Conversation, Message
 from ..schemas import ChatRequest, ChatResponse
-from ..services.gemini import GeminiClient
+from ..services.openrouter import OpenRouterClient
 from ..database import get_db
 
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 async def chat(
 	payload: ChatRequest,
 	db: AsyncSession = Depends(get_db),
-	gemini: GeminiClient = Depends(get_gemini_client),
+	chat_client: OpenRouterClient = Depends(get_chat_client),
 ):
 	# Upsert conversation by session_id to keep history for admin view.
 	existing = await db.execute(
@@ -43,9 +43,9 @@ async def chat(
 		)
 	)
 
-	# Call Gemini for a reply + risk assessment
+	# Call OpenRouter for a reply + risk assessment
 	try:
-		result = await gemini.generate(payload.message, payload.language, payload.name)
+		result = await chat_client.generate(payload.message, payload.language, payload.name)
 	except Exception as exc:  # pragma: no cover - demo resilience
 		raise HTTPException(
 			status_code=status.HTTP_502_BAD_GATEWAY,

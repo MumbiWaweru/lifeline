@@ -1,6 +1,6 @@
 # GBV Support API (FastAPI demo)
 
-This is a demo backend for the GBV Support and Risk Assessment platform. It wires FastAPI, SQLite (by default) or PostgreSQL (optional), and a Claude integration for risk assessment.
+This is a demo backend for the GBV Support and Risk Assessment platform. It wires FastAPI, SQLite (by default) or PostgreSQL (optional), and an OpenRouter integration for risk assessment.
 
 ## Quick start
 1. Create a virtualenv and install deps:
@@ -13,14 +13,14 @@ This is a demo backend for the GBV Support and Risk Assessment platform. It wire
    ```bash
    cat > .env <<'EOF'
    DATABASE_URL=sqlite+aiosqlite:///./app.db
-   CLAUDE_API_KEY=your_key_here
-   CLAUDE_MODEL=claude-3-sonnet-20240229
+   OPENROUTER_API_KEY=your_key_here
+   OPENROUTER_MODEL=qwen/qwen3-32b:free
    ADMIN_PASSWORD=changeme
    ADMIN_TOKEN=demo-admin-token
    ALLOWED_ORIGINS=*
    EOF
    ```
-   - If `CLAUDE_API_KEY` is missing, the app falls back to a stubbed response so the demo still works.
+   - If `OPENROUTER_API_KEY` is missing, the app falls back to a stubbed response so the demo still works.
 3. Run the server:
    ```bash
    uvicorn app.main:app --reload

@@ -12,8 +12,9 @@ class Settings(BaseSettings):
 	app_name: str = "GBV Support API"
 	environment: str = "development"
 
-	# Gemini / Google
-	gemini_api_key: str | None = None
+	# Chat provider (OpenRouter free tier model)
+	openrouter_api_key: str | None = None
+	openrouter_model: str = "qwen/qwen3-32b:free"
 
 	# Database (SQLite by default for easy setup; override with Postgres if needed)
 	database_url: str = "sqlite+aiosqlite:///./app.db"

@@ -27,7 +27,7 @@ async def test_backend():
         except Exception as e:
             print(f"❌ Health Check: ERROR - {e}")
         
-        # 2. Chat endpoint (without API key - should use offline mode)
+        # 2. Chat endpoint (without OpenRouter key - should use offline mode)
         try:
             chat_data = {
                 "message": "I'm experiencing control and isolation in my relationship",

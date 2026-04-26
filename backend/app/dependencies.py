@@ -1,16 +1,18 @@
 """Reusable FastAPI dependencies."""
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Header, HTTPException, status
 
 from .config import get_settings
-from .database import get_db
-from .services.gemini import GeminiClient
+from .services.openrouter import OpenRouterClient
 
-# Dependency to provide a configured Gemini client instance.
-def get_gemini_client() -> GeminiClient:
-	"""Provide a Gemini client instance with configured API key."""
+# Dependency to provide a configured OpenRouter client instance.
+def get_chat_client() -> OpenRouterClient:
+	"""Provide a chat client instance with configured OpenRouter settings."""
 	settings = get_settings()
-	return GeminiClient(api_key=settings.gemini_api_key)
+	return OpenRouterClient(
+		api_key=settings.openrouter_api_key,
+		model=settings.openrouter_model,
+	)
 
 #  Dependency to enforce admin access on protected routes.
 async def require_admin(authorization: str | None = Header(None)) -> None:
