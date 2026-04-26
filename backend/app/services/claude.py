@@ -1,544 +1,307 @@
-"""
-Lifeline AI Service - claude.py
-Empathetic, situation-aware responses for GBV survivors.
-Covers: physical harm, financial abuse, emotional abuse, sexual violence,
-        online/digital abuse, child abuse, and compound situations.
-"""
+"""Claude API client wrapper for risk assessment and replies."""
 
-import os
-import re
-from typing import Optional
+import json
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
-
-# ─────────────────────────────────────────────
-#  ONLINE MODE  –  Claude API system prompt
-# ─────────────────────────────────────────────
-
-SYSTEM_PROMPT = """
-You are a compassionate, trauma-informed support companion for Lifeline, a platform serving 
-Gender-Based Violence (GBV) survivors in Kenya. You speak with warmth, without judgment, 
-and always believe the person reaching out.
-
-CORE PRINCIPLES
-- Lead with empathy FIRST. Never jump straight to advice.
-- Acknowledge the SPECIFIC harm they described — physical, financial, sexual, emotional, or digital.
-- Never minimize. Never say "it could be worse" or "at least..."
-- Never victim-blame. Never ask "why didn't you leave?" or "what did you do to provoke it?"
-- Use plain, clear language. Avoid clinical or bureaucratic terms.
-- If someone is in immediate danger, always surface emergency contacts early.
-- Respect their autonomy. Offer options; don't prescribe.
-- If they write in Swahili, respond in Swahili.
-
-SITUATION RECOGNITION — tailor every response to the specific harm described:
-
-PHYSICAL HARM (beating, kicking, strangling, weapon use, burns, injury)
-- Acknowledge: the pain is real; what happened to their body was wrong.
-- Ask gently about immediate safety and medical needs.
-- Surface emergency numbers (999/112, Gender Violence Recovery Centre: 0800 720 990).
-- Mention documentation of injuries can help if they choose to report.
-
-FINANCIAL/ECONOMIC ABUSE (controlling money, taking income, sabotaging job, withholding basics)
-- Name it clearly: "What you're describing is financial abuse — it's a real form of GBV."
-- Acknowledge the specific trap: being dependent is not weakness, it was engineered.
-- Offer practical angles: separate accounts, income support orgs, legal rights to marital property.
-- Kenya resources: Kenya Legal Aid Centre (0800 723 253), FIDA Kenya (020 3875369).
-
-SEXUAL VIOLENCE (rape, marital rape, forced acts, trafficking)
-- Lead with belief and dignity: "I believe you. What happened was not your fault."
-- Mention medical care options (PEP within 72hrs, forensic evidence window).
-- Surface: Gender Violence Recovery Centre (0800 720 990), Nairobi Women's Hospital GBV line.
-- Note: marital rape IS a crime in Kenya.
-
-EMOTIONAL / PSYCHOLOGICAL ABUSE (threats, isolation, humiliation, gaslighting, controlling behaviour)
-- Validate: "Abuse doesn't have to leave a bruise to be real. What you're going through counts."
-- Help them name the pattern if they seem unsure it's abuse.
-- Offer counselling referrals.
-
-CHILD ABUSE / ABUSE OF A MINOR
-- Express urgency gently but clearly.
-- Report line: Childline Kenya 116 (free, 24/7).
-- Assure them reporting is the right thing, not a betrayal.
-
-DIGITAL / ONLINE ABUSE (non-consensual images, cyber harassment, surveillance, hacking)
-- Acknowledge: online harm causes real harm.
-- Guide on evidence preservation before deletion.
-- Kenya: this falls under Computer Misuse and Cybercrimes Act 2018 — they have legal options.
-
-COMPOUND SITUATIONS (multiple forms of abuse, or abuse + financial dependency)
-- Don't rush to solve everything.
-- Start with whichever harm feels most urgent to the person.
-- Affirm that complexity is normal; support is still available.
-
-RISK LEVEL GUIDANCE
-- green: Supportive conversation, self-care, resources.
-- amber: Safety planning, escalation options, immediate support numbers.
-- red: Prioritise immediate safety. Surface emergency contacts prominently. 
-       Offer to help them create a quick safety plan.
-
-ALWAYS END WITH
-- A reminder that they are not alone.
-- At least one concrete next step they can choose to take.
-- In HIGH-RISK situations, include: Emergency: 999 or 112 | GBV Recovery: 0800 720 990 (free, 24/7)
-
-WHAT TO NEVER DO
-- Never end a response with only a list of numbers and no human words.
-- Never start with "I understand how you feel" as an empty opener — be specific to what they said.
-- Never rush a person out of the conversation toward resources without first sitting with them.
-"""
+import httpx
 
 
-# ─────────────────────────────────────────────
-#  OFFLINE / STUB MODE  –  Rule-based responses
-# ─────────────────────────────────────────────
+@dataclass
+class ChatResult:
+    reply: str
+    risk_level: str
+    hotlines: List[Dict[str, str]]
 
-# Each entry: (keyword_list, risk_level, english_response, swahili_response)
-RESPONSE_RULES = [
 
-    # ── IMMEDIATE DANGER ──────────────────────────────────────────────────────
-    (
-        ["kill me", "going to kill", "will kill", "ataniua", "ananiua", "knife", "gun", "weapon",
-         "strangling", "choking", "i can't breathe", "he has a"],
-        "red",
-        (
-            "What you're describing sounds extremely dangerous, and I want you to know — your life matters. "
-            "Please, if you can do so safely, move away from that person right now. "
-            "Call 999 or 112 immediately. You can also reach the free GBV Recovery line: 0800 720 990 (available 24/7).\n\n"
-            "If you can't speak safely, you can text a trusted person your location. "
-            "Your safety comes first — we can talk through everything else once you are somewhere safer. "
-            "You are not alone in this."
-        ),
-        (
-            "Unachokielezea kinasikika hatari sana, na nataka ujue — maisha yako yana thamani. "
-            "Tafadhali, kama unaweza kufanya hivyo salama, toka mbali na mtu huyo sasa hivi. "
-            "Piga simu 999 au 112 mara moja. Unaweza pia kuwasiliana na laini ya GBV Recovery bure: 0800 720 990 (inapatikana masaa 24/7).\n\n"
-            "Kama huwezi kuzungumza salama, unaweza kutumia ujumbe kwa mtu unayemwamini mahali ulipo. "
-            "Usalama wako ndio unaokuja kwanza — tunaweza kuzungumza kuhusu kila kitu kingine ukiwa mahali salama. "
-            "Huko peke yako katika hili."
-        ),
-    ),
+SYSTEM_PROMPT = """You are a trauma-informed AI support assistant for the Lifeline GBV (Gender-Based Violence) platform in Kenya.
 
-    # ── PHYSICAL HARM ─────────────────────────────────────────────────────────
-    (
-        ["hit", "beat", "slap", "punch", "kick", "pushed", "shoved", "burned", "burnt",
-         "injured", "bruise", "broken bone", "hospital", "anipiga", "ananipiga", "alipiga",
-         "physical", "hurt me", "hurting me", "he hurt", "she hurt"],
-        "amber",
-        (
-            "I'm so sorry this happened to you. What you experienced — being physically hurt by someone "
-            "who should be safe — is never okay, and it is never your fault.\n\n"
-            "Right now, the most important thing is your safety and your body. "
-            "If you have injuries, please try to get medical attention — even if they seem minor, "
-            "a doctor can treat you and also document what happened, which can matter later if you choose to report.\n\n"
-            "If you're still in the same space as the person who hurt you and feel unsafe, "
-            "you can call 999 or 112, or reach the free GBV support line: 0800 720 990 (24/7).\n\n"
-            "You don't have to make any big decisions right now. But please know there are people "
-            "ready to stand with you. Would you like help finding a shelter or a safe place nearby?"
-        ),
-        (
-            "Pole sana kwa hili lililokupata. Ulichopitia — kuumizwa kimwili na mtu "
-            "ambaye angepaswa kuwa salama — si sawa kamwe, na si kosa lako kamwe.\n\n"
-            "Kwa sasa, jambo muhimu zaidi ni usalama wako na mwili wako. "
-            "Kama una majeraha, tafadhali jaribu kupata matibabu — hata kama yanaonekana madogo, "
-            "daktari anaweza kukutibu na pia kuandika kilichotokea, jambo ambalo linaweza kuwa muhimu baadaye ukichagua kuripoti.\n\n"
-            "Kama bado uko katika nafasi moja na mtu aliyekuumiza na unahisi si salama, "
-            "unaweza kupiga simu 999 au 112, au kufikia laini ya msaada ya GBV bure: 0800 720 990 (masaa 24/7).\n\n"
-            "Huhitaji kufanya maamuzi makubwa sasa hivi. Lakini tafadhali jua kuna watu "
-            "tayari kusimama nawe. Je, ungependa msaada kupata makazi au mahali salama karibu?"
-        ),
-    ),
+Your role:
+- Provide compassionate, non-judgmental support to GBV survivors
+- Assess risk level based on the conversation
+- Provide practical safety guidance
+- Connect survivors with relevant local resources
 
-    # ── FINANCIAL / ECONOMIC ABUSE ────────────────────────────────────────────
-    (
-        ["money", "pesa", "salary", "mshahara", "account", "akaunti", "bank", "taking my",
-         "controls my", "won't let me work", "took my", "alichukua", "anachukua",
-         "can't afford", "left me with nothing", "financial", "economic", "debt", "deni",
-         "no food", "hakuna chakula", "can't pay", "bills", "rent"],
-        "amber",
-        (
-            "What you're describing is financial abuse — and it is a recognised, serious form of "
-            "gender-based violence. Being cut off from money, having your income controlled or taken, "
-            "or being prevented from working is not just unfair — it's a way of trapping you, and that "
-            "trap was built deliberately.\n\n"
-            "You are not weak for being in this situation. The dependency you feel was engineered by them.\n\n"
-            "There are a few things that may help, whenever you feel ready:\n"
-            "• You have a legal right to marital property and financial support in Kenya — "
-            "FIDA Kenya (020 3875369) can advise you for free.\n"
-            "• Kenya Legal Aid Centre (0800 723 253) offers free legal help on financial rights.\n"
-            "• If you have children, you may be entitled to court-ordered child support.\n"
-            "• Some shelters can help you get back on your feet financially, not just provide a safe space.\n\n"
-            "You don't have to figure all of this out at once. What feels most urgent to you right now?"
-        ),
-        (
-            "Unachokielezea ni unyanyasaji wa kifedha — na ni aina inayotambuliwa na mbaya ya "
-            "unyanyasaji wa kijinsia. Kukatiliwa mbali na pesa, kuwa na mapato yako kudhibitiwa au kuchukuliwa, "
-            "au kuzuiwa kufanya kazi si dhuluma tu — ni njia ya kukufunga, na mtego huo "
-            "ulijengwa kwa makusudi.\n\n"
-            "Huna udhaifu kwa kuwa katika hali hii. Utegemezi unaohisi uliundwa nao.\n\n"
-            "Kuna mambo machache ambayo yanaweza kusaidia, ukiwa tayari:\n"
-            "• Una haki ya kisheria ya mali ya ndoa na msaada wa kifedha nchini Kenya — "
-            "FIDA Kenya (020 3875369) inaweza kukushauri bure.\n"
-            "• Kituo cha Msaada wa Kisheria cha Kenya (0800 723 253) kinatoa msaada wa kisheria bure kuhusu haki za kifedha.\n"
-            "• Kama una watoto, unaweza kuwa na haki ya msaada wa watoto ulioamriwa na mahakama.\n"
-            "• Makazi fulani yanaweza kukusaidia kupata nguvu tena kifedha, si tu kutoa nafasi salama.\n\n"
-            "Huhitaji kuelewa yote haya mara moja. Ni nini kinachoonekana muhimu zaidi kwako sasa hivi?"
-        ),
-    ),
+CRITICAL RULES FOR EVERY RESPONSE:
+1. If the user has shared their name, USE IT naturally in your reply (e.g. "I hear you, Amina" or "Thank you for telling me that, Sarah").
+2. ALWAYS acknowledge the specific emotion or situation they described FIRST before giving advice.
+   - If they say they are scared → "It makes complete sense that you're scared..."
+   - If they say they are confused → "Feeling confused in this situation is completely understandable..."
+   - If they describe violence → "What you've just described is not okay, and it is not your fault..."
+3. NEVER jump straight to advice without first validating their feelings.
+4. Keep your tone warm, human, and personal — not clinical or list-like.
+5. End every response by inviting them to share more or asking one gentle follow-up question.
 
-    # ── SEXUAL VIOLENCE ───────────────────────────────────────────────────────
-    (
-        ["raped", "rape", "sexual", "forced me", "touched me", "ubakaji", "alibaka", "anabaka",
-         "forced sex", "marital rape", "ndoa ubakaji", "sexually assaulted", "assault"],
-        "red",
-        (
-            "I believe you. What happened to you was not your fault — not in any way, not at all.\n\n"
-            "Sexual violence, including within marriage, is a crime in Kenya. You have done nothing wrong.\n\n"
-            "If this happened recently (within 72 hours), there is medical care that can help — "
-            "including treatment to prevent infections and, if needed, emergency contraception. "
-            "This care is available at the Gender Violence Recovery Centre and Nairobi Women's Hospital.\n\n"
-            "You don't have to report to the police right now if you're not ready. But if you want to, "
-            "evidence matters, and a medical professional can help preserve it.\n\n"
-            "📞 GBV Recovery Line (free, 24/7): 0800 720 990\n"
-            "📞 Nairobi Women's Hospital GBV: 0719 638 006\n\n"
-            "You are incredibly brave for reaching out. Whatever you need next, I'm here."
-        ),
-        (
-            "Nakuamini. Kilichokupata haukustahili — kwa njia yoyote, hata kidogo.\n\n"
-            "Jeuri ya kingono, ikiwemo ndani ya ndoa, ni uhalifu nchini Kenya. Hujafanya kosa lolote.\n\n"
-            "Kama hii ilitokea hivi karibuni (ndani ya masaa 72), kuna matibabu yanayoweza kusaidia — "
-            "ikiwemo matibabu kuzuia maambukizo na, ikihitajika, uzazi wa mpango wa dharura. "
-            "Huduma hii inapatikana katika Kituo cha Urejeleaji wa Jeuri ya Kijinsia na Hospitali ya Wanawake ya Nairobi.\n\n"
-            "Huhitaji kuripoti kwa polisi sasa hivi kama hujawa tayari. Lakini ukitaka, "
-            "ushahidi una umuhimu, na mtaalamu wa matibabu anaweza kusaidia kuuhifadhi.\n\n"
-            "📞 Laini ya GBV Recovery (bure, masaa 24/7): 0800 720 990\n"
-            "📞 GBV ya Hospitali ya Wanawake ya Nairobi: 0719 638 006\n\n"
-            "Unashujaa sana kwa kutafuta msaada. Chochote unachohitaji kinachofuata, niko hapa."
-        ),
-    ),
+ALWAYS respond in JSON format with these exact keys:
+{
+  "reply": "your compassionate, personal response in the user's language",
+  "risk_level": "green" | "amber" | "red",
+  "hotlines": [{"name": "hotline name", "number": "phone number", "type": "hotline|emergency|legal|medical"}]
+}
 
-    # ── EMOTIONAL / PSYCHOLOGICAL ABUSE ──────────────────────────────────────
-    (
-        ["shout", "yell", "scream", "threaten", "threat", "control", "isolate", "isolated",
-         "jealous", "humiliate", "embarrass", "insult", "call me names", "crazy", "worthless",
-         "manipulate", "gaslight", "no one will believe", "you're nothing", "stupid",
-         "kutishia", "kudhibiti", "kudhalilisha", "kutengwa"],
-        "amber",
-        (
-            "What you're describing is emotional and psychological abuse — and it is real, "
-            "even when there are no visible marks. Abuse doesn't have to leave a bruise to cause serious harm.\n\n"
-            "Being constantly shouted at, isolated from people you love, humiliated, "
-            "or made to feel worthless wears something down inside you over time. "
-            "You are not imagining it. You are not overreacting.\n\n"
-            "The fact that you're reaching out tells me part of you knows this isn't okay — "
-            "and that part of you is right.\n\n"
-            "Speaking to a counsellor can be a powerful first step — not because something is wrong with you, "
-            "but because you deserve a space where someone truly listens. "
-            "Would you like help finding a counsellor or a support group near you?"
-        ),
-        (
-            "Unachokielezea ni unyanyasaji wa kihisia na kisaikolojia — na ni wa kweli, "
-            "hata wakati hakuna alama zinazoonekana. Unyanyasaji haulazimiki kuacha makovu kudhuru vibaya.\n\n"
-            "Kupigwa kelele mara kwa mara, kutengwa na watu unaowapenda, kudhalilishwa, "
-            "au kufanywa kujisikia huna thamani kunachomba kitu ndani yako kwa muda. "
-            "Hujafikiria. Hukujibu kupita kiasi.\n\n"
-            "Ukweli kwamba unatafuta msaada unaonyesha sehemu yako inajua hii si sawa — "
-            "na sehemu hiyo ya wewe iko sawa.\n\n"
-            "Kuzungumza na mshauri anaweza kuwa hatua ya kwanza yenye nguvu — si kwa sababu kuna kitu kibaya nawe, "
-            "bali kwa sababu unastahili nafasi ambapo mtu anakusikiliza kweli kweli. "
-            "Je, ungependa msaada kupata mshauri au kikundi cha msaada karibu nawe?"
-        ),
-    ),
+Risk assessment criteria:
+- green: No immediate danger, seeking information or general support
+- amber: Warning signs present — controlling behavior, isolation, threats, fear
+- red: Immediate danger — physical violence occurring/imminent, weapons mentioned, severe threats
 
-    # ── CHILD ABUSE ───────────────────────────────────────────────────────────
-    (
-        ["child", "mtoto", "children", "watoto", "daughter", "binti", "son", "mwana",
-         "minor", "kid", "baby", "mdogo", "abuse my child", "hurting my child",
-         "anaumiza mtoto", "school", "shule"],
-        "red",
-        (
-            "Your concern for this child is so important, and reaching out was exactly the right thing to do.\n\n"
-            "Children cannot protect themselves from adults who harm them — that's why people like you, "
-            "who notice and speak up, matter so much.\n\n"
-            "Please contact Childline Kenya right away — it's free, confidential, and available 24/7:\n"
-            "📞 Childline Kenya: 116\n\n"
-            "If the child is in immediate physical danger, call 999 or 112 now.\n\n"
-            "You are not betraying anyone by protecting a child. "
-            "You are doing exactly what a caring person does."
-        ),
-        (
-            "Wasiwasi wako kwa mtoto huyu ni muhimu sana, na kutafuta msaada ilikuwa jambo sahihi kufanya.\n\n"
-            "Watoto hawawezi kujilinda dhidi ya watu wazima wanaowaumiza — ndiyo maana watu kama wewe, "
-            "wanaogundua na kusema, wana umuhimu mkubwa sana.\n\n"
-            "Tafadhali wasiliana na Childline Kenya mara moja — ni bure, ya siri, na inapatikana masaa 24/7:\n"
-            "📞 Childline Kenya: 116\n\n"
-            "Kama mtoto yuko katika hatari ya haraka ya kimwili, piga simu 999 au 112 sasa.\n\n"
-            "Husaliti mtu yeyote kwa kulinda mtoto. "
-            "Unafanya hasa kile ambacho mtu mwenye huruma hufanya."
-        ),
-    ),
+Always include at minimum:
+- GVRC Hotline: 1195 (all risk levels)
+- Kenya Police: 999 (red only)
+- Kituo cha Sheria: 0800 720 185 (amber/red for legal help)
 
-    # ── DIGITAL / ONLINE ABUSE ────────────────────────────────────────────────
-    (
-        ["photos", "picha", "video", "online", "mtandao", "social media", "whatsapp",
-         "shared my", "posted", "hackd", "hacked", "tracking", "spying", "location",
-         "threats online", "cyber", "internet", "blackmail", "mafisadi"],
-        "amber",
-        (
-            "What's happening to you online is a real form of abuse — and it causes real harm, "
-            "even if some people don't take it seriously. You are right to take it seriously.\n\n"
-            "Under Kenya's Computer Misuse and Cybercrimes Act (2018), sharing intimate images without consent, "
-            "online harassment, and cyber-stalking are all criminal offences. You have legal options.\n\n"
-            "A few things that can help right now:\n"
-            "• Screenshot and save evidence before reporting or removing anything.\n"
-            "• Report the content to the platform (WhatsApp, Facebook, Instagram, etc.) using their abuse reporting tools.\n"
-            "• Contact the Directorate of Criminal Investigations (DCI): 0800 722 203.\n"
-            "• If someone is using your location to stalk or threaten you, consider turning off location sharing "
-            "and letting a trusted person know.\n\n"
-            "Would you like to talk more about what's happening so we can figure out the best next step for your situation?"
-        ),
-        (
-            "Kinachokupata mtandaoni ni aina halisi ya unyanyasaji — na unasababisha madhara halisi, "
-            "hata kama watu wengine hawachukui kwa uzito. Una haki ya kuichukua kwa uzito.\n\n"
-            "Chini ya Sheria ya Matumizi Mabaya ya Kompyuta na Uhalifu wa Mtandao ya Kenya (2018), "
-            "kushiriki picha za karibu bila idhini, unyanyasaji mtandaoni, na kufuatilia mtandaoni "
-            "ni makosa ya jinai. Una chaguzi za kisheria.\n\n"
-            "Mambo machache yanayoweza kusaidia sasa hivi:\n"
-            "• Chukua picha za skrini na uhifadhi ushahidi kabla ya kuripoti au kuondoa chochote.\n"
-            "• Ripoti maudhui kwenye jukwaa (WhatsApp, Facebook, Instagram, n.k.) ukitumia zana zao za kuripoti unyanyasaji.\n"
-            "• Wasiliana na Directorate of Criminal Investigations (DCI): 0800 722 203.\n"
-            "• Kama mtu anatumia mahali ulipo kukufuatilia au kukutishia, fikiria kuzima ushiriki wa mahali "
-            "na kumjulisha mtu unayemwamini.\n\n"
-            "Je, ungependa kuzungumza zaidi kuhusu kinachoendelea ili tuweze kujua hatua bora inayofuata kwa hali yako?"
-        ),
-    ),
+Language: Respond in the same language the user writes in (English or Swahili).
+Do NOT include any text outside the JSON object."""
 
-    # ── LEAVING / WANTING TO LEAVE ────────────────────────────────────────────
-    (
-        ["leave", "leaving", "escape", "run away", "get out", "want to go", "can't leave",
-         "afraid to leave", "where can i go", "nataka kwenda", "kutoroka", "ningetaka kuondoka",
-         "acha", "nina hofu ya kwenda", "wapi niweze kwenda"],
-        "amber",
-        (
-            "Wanting to leave takes courage — and the fear you feel about leaving is completely valid. "
-            "Leaving is often the most dangerous time in an abusive relationship, and it's wise to plan carefully.\n\n"
-            "You don't have to leave tonight if it's not safe to do so. But planning ahead can make it safer when you do.\n\n"
-            "A safety plan might include:\n"
-            "• Identifying a trusted person who can help you — a friend, relative, neighbour.\n"
-            "• Keeping important documents (ID, birth certificates, financial records) accessible or with someone safe.\n"
-            "• Having a small bag ready with essentials — clothes, medication, phone charger, cash.\n"
-            "• Memorising key phone numbers in case your phone is taken.\n\n"
-            "There are shelters in Kenya that can take you in — safely and confidentially:\n"
-            "📞 GBV Recovery Line (free, 24/7): 0800 720 990\n"
-            "📞 FIDA Kenya: 020 3875369\n\n"
-            "You deserve a life where you feel safe. Let's figure out the next step together."
-        ),
-        (
-            "Kutaka kwenda kunachukua ujasiri — na hofu unayohisi kuhusu kwenda ni sahihi kabisa. "
-            "Kuondoka mara nyingi ni wakati hatari zaidi katika uhusiano wa unyanyasaji, na ni busara kupanga kwa makini.\n\n"
-            "Huhitaji kuondoka usiku huu kama si salama kufanya hivyo. Lakini kupanga mapema kunaweza kuifanya salama zaidi utakapofanya hivyo.\n\n"
-            "Mpango wa usalama unaweza kujumuisha:\n"
-            "• Kutambua mtu unayemwamini ambaye anaweza kukusaidia — rafiki, ndugu, jirani.\n"
-            "• Kuweka nyaraka muhimu (kitambulisho, vyeti vya kuzaliwa, kumbukumbu za kifedha) zinazopatikana au kwa mtu salama.\n"
-            "• Kuwa na begi ndogo tayari na vitu muhimu — nguo, dawa, chaja ya simu, pesa taslimu.\n"
-            "• Kukariri nambari muhimu za simu kwa sababu simu yako inaweza kuchukuliwa.\n\n"
-            "Kuna makazi nchini Kenya ambayo yanaweza kukupokea — kwa usalama na usiri:\n"
-            "📞 Laini ya GBV Recovery (bure, masaa 24/7): 0800 720 990\n"
-            "📞 FIDA Kenya: 020 3875369\n\n"
-            "Unastahili maisha ambapo unajisikia salama. Hebu tujue hatua inayofuata pamoja."
-        ),
-    ),
 
-    # ── UNSURE / NOT RECOGNISING ABUSE ───────────────────────────────────────
-    (
-        ["not sure", "i don't know", "sijui", "maybe it's my fault", "labda ni kosa langu",
-         "am i overreacting", "is this abuse", "is this normal", "he loves me", "she loves me",
-         "it's complicated", "confused", "ninachanganyikiwa"],
-        "green",
-        (
-            "It takes real courage to even ask that question — 'is this abuse?' — and the fact that "
-            "you're asking it tells me something important: something doesn't feel right to you.\n\n"
-            "Abuse doesn't always look the way people expect. It can be subtle — "
-            "someone making you doubt yourself, controlling who you see, taking your money, "
-            "or making you feel like you're always wrong. Love should not feel like fear.\n\n"
-            "You don't have to label what's happening to reach out for support. "
-            "You don't need to have a 'bad enough' situation. "
-            "If something is hurting you, that is enough.\n\n"
-            "Can you tell me a little more about what's been happening? "
-            "I'm here, and there's no rush."
-        ),
-        (
-            "Inachukua ujasiri wa kweli hata kuuliza swali hilo — 'je, hii ni unyanyasaji?' — na ukweli kwamba "
-            "unauliza unaniambia kitu muhimu: kitu hakionekani sawa kwako.\n\n"
-            "Unyanyasaji haonekani kila wakati jinsi watu wanavyotarajia. Unaweza kuwa wa kina — "
-            "mtu anakufanya kutilia shaka nafsi yako, kudhibiti unaowaona, kuchukua pesa zako, "
-            "au kukufanya uhisi kama una makosa kila wakati. Upendo haupaswi kuhisi kama hofu.\n\n"
-            "Huhitaji kuweka lebo kinachoendelea ili kutafuta msaada. "
-            "Huhitaji kuwa na hali 'mbaya ya kutosha'. "
-            "Kama kitu kinakuumiza, hiyo inatosha.\n\n"
-            "Je, unaweza kunieleza zaidi kuhusu kilichokuwa kikiendelea? "
-            "Niko hapa, na hakuna haraka."
-        ),
-    ),
+# Empathetic opening phrases by emotion keyword
+EMPATHY_OPENERS_EN = {
+    "scared":    "It makes complete sense that you're scared — what you're describing would frighten anyone.",
+    "afraid":    "Being afraid in this situation is completely understandable, and I want you to know that feeling is valid.",
+    "scared":    "It makes complete sense that you feel scared right now.",
+    "lonely":    "Feeling alone in this is one of the hardest parts, and I'm glad you reached out.",
+    "confused":  "Feeling confused about what's happening is completely normal — these situations are never simple.",
+    "ashamed":   "I want you to hear this clearly: what is happening to you is not your fault, and you have nothing to be ashamed of.",
+    "tired":     "Being exhausted by all of this is completely valid. You've been carrying so much.",
+    "hopeless":  "Even when things feel hopeless, you reaching out right now shows incredible strength.",
+    "angry":     "Your anger makes complete sense — what's been done to you is wrong.",
+    "hurt":      "I'm so sorry you've been hurt. You didn't deserve that.",
+    "trapped":   "Feeling trapped is real, and I want to help you see that options do exist, even when they feel invisible.",
+    "helpless":  "Feeling helpless doesn't mean you are helpless. I'm here, and we can think through this together.",
+    "desperate": "I can hear how desperate things feel right now, and I'm not going to leave you without support.",
+}
 
-    # ── GENERAL HELP / FIRST CONTACT ─────────────────────────────────────────
-    (
-        ["help", "msaada", "support", "need help", "nahitaji msaada", "i need", "what do i do",
-         "nifanye nini", "please", "tafadhali", "i'm scared", "ninaogopa", "afraid", "hofu"],
-        "green",
-        (
-            "I'm really glad you reached out. Whatever brought you here today, you don't have to face it alone.\n\n"
-            "This is a safe, confidential space. Nothing you share here will be used against you. "
-            "There is no judgment here — only support.\n\n"
-            "Can you tell me a little about what's happening? You can share as much or as little as you're comfortable with. "
-            "I'll do my best to help you find the support that's right for your situation."
-        ),
-        (
-            "Ninafurahi sana umewasiliana. Chochote kilichokuleta hapa leo, huhitaji kukabiliana nacho peke yako.\n\n"
-            "Hii ni nafasi salama na ya siri. Hakuna kilichoshirikishwa hapa kitakachotumiwa dhidi yako. "
-            "Hakuna hukumu hapa — msaada tu.\n\n"
-            "Je, unaweza kunieleza kidogo kuhusu kinachoendelea? Unaweza kushiriki kadri unavyojisikia vizuri. "
-            "Nitajaribu kukusaidia kupata msaada unaofaa kwa hali yako."
-        ),
-    ),
-]
-
-# Fallback when no rule matches
-FALLBACK_RESPONSES = {
-    "en": (
-        "green",
-        (
-            "Thank you for trusting me with this. I want to make sure I understand what you're going through.\n\n"
-            "Could you tell me a little more about your situation? "
-            "Whatever it is — whether it involves physical harm, financial stress, "
-            "something happening online, or something else entirely — you are in the right place, "
-            "and there is no situation too small or too complicated for support.\n\n"
-            "I'm here, and I'm listening."
-        ),
-    ),
-    "sw": (
-        "green",
-        (
-            "Asante kwa kuniambia hili. Nataka kuhakikisha ninaelewa unachopitia.\n\n"
-            "Je, unaweza kunieleza zaidi kidogo kuhusu hali yako? "
-            "Iwe ni nini — iwe inahusiana na madhara ya kimwili, msongo wa kifedha, "
-            "kitu kinachoendelea mtandaoni, au kitu kingine kabisa — uko mahali sahihi, "
-            "na hakuna hali ndogo mno au ngumu mno kwa msaada.\n\n"
-            "Niko hapa, na ninakusikiliza."
-        ),
-    ),
+EMPATHY_OPENERS_SW = {
+    "scared":    "Ni kawaida kabisa kuhisi woga — hali unayoelezea ingeweza kumtia mtu yeyote hofu.",
+    "afraid":    "Kuogopa katika hali hii ni jambo linaloeleweka, na hisia hiyo ni ya kweli.",
+    "peke":      "Kuhisi peke yako ni mojawapo ya mambo magumu zaidi, na ninafurahi ulifika.",
+    "confused":  "Kuhisi mkanganyiko kuhusu kinachoendelea ni kawaida kabisa — hali hizi hazieleweki rahisi.",
+    "aibu":      "Nataka usikia hili wazi: kinachokupata si kosa lako, na huna sababu ya kuona aibu.",
+    "choka":     "Kuchoka na hali hii ni jambo linaloeleweka. Umebeba mengi sana.",
+    "trapped":   "Kuhisi umefungwa ni hali halisi, na nataka kukusaidia kuona kwamba chaguo zipo.",
 }
 
 
-# ─────────────────────────────────────────────
-#  CORE LOGIC
-# ─────────────────────────────────────────────
-
-def detect_language(text: str) -> str:
-    swahili_markers = [
-        "nina", "niko", "ninajua", "tafadhali", "asante", "habari", "msaada",
-        "nataka", "sijui", "nifanye", "anipiga", "ananipiga", "alipiga",
-        "pesa", "watoto", "mtoto", "hofu", "ninaogopa", "kwenda", "kutoroka",
-        "ubakaji", "alibaka", "anabaka", "kudhibiti", "kutishia",
-    ]
-    text_lower = text.lower()
-    score = sum(1 for marker in swahili_markers if marker in text_lower)
-    return "sw" if score >= 2 else "en"
+def _get_empathy_opener(message: str, language: str) -> str:
+    """Return an empathetic opener matched to keywords in the user's message."""
+    m = message.lower()
+    openers = EMPATHY_OPENERS_SW if language == "sw" else EMPATHY_OPENERS_EN
+    for keyword, opener in openers.items():
+        if keyword in m:
+            return opener
+    return ""
 
 
-def match_response(text: str, language: str):
-    """Return (risk_level, response_text) from rule matching."""
-    text_lower = text.lower()
-    best_match = None
-    best_score = 0
-
-    for keywords, risk, en_response, sw_response in RESPONSE_RULES:
-        score = sum(1 for kw in keywords if kw in text_lower)
-        if score > best_score:
-            best_score = score
-            response_text = sw_response if language == "sw" else en_response
-            best_match = (risk, response_text)
-
-    if best_match:
-        return best_match
-
-    fallback_risk, fallback_text = FALLBACK_RESPONSES.get(language, FALLBACK_RESPONSES["en"])
-    return fallback_risk, fallback_text
-
-
-def build_hotlines(risk_level: str, language: str) -> str:
-    """Append hotlines for amber/red situations."""
-    if risk_level == "green":
+def _build_name_greeting(name: str, language: str) -> str:
+    """Return a natural name acknowledgment string."""
+    if not name or not name.strip():
         return ""
+    n = name.strip().capitalize()
     if language == "sw":
-        return (
-            "\n\n---\n"
-            "📞 **Laini ya GBV (bure, masaa 24/7):** 0800 720 990\n"
-            "📞 **Dharura:** 999 au 112\n"
-            "📞 **FIDA Kenya:** 020 3875369\n"
-            "📞 **Childline Kenya:** 116"
-        )
-    return (
-        "\n\n---\n"
-        "📞 **GBV Recovery Line (free, 24/7):** 0800 720 990\n"
-        "📞 **Emergency:** 999 or 112\n"
-        "📞 **FIDA Kenya:** 020 3875369\n"
-        "📞 **Childline Kenya:** 116"
-    )
+        return f"{n}, "
+    return f"{n}, "
 
 
-# ─────────────────────────────────────────────
-#  PUBLIC API
-# ─────────────────────────────────────────────
+class ClaudeClient:
+    def __init__(self, api_key: str | None, model: str) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.base_url = "https://api.anthropic.com/v1/messages"
 
-async def get_ai_response(
-    message: str,
-    conversation_history: Optional[list] = None,
-    language: str = "en",
-) -> dict:
-    """
-    Returns { "response": str, "risk_level": str }
-    Tries Claude API first; falls back to empathetic rule-based stub.
-    """
-    detected_lang = detect_language(message) if language == "en" else language
+    async def generate(self, message: str, language: str, name: str = "") -> ChatResult:
+        if not self.api_key:
+            return self._stub_response(message, language, name)
 
-    # ── Try online (Claude API) ──────────────────────────────────────────
-    if CLAUDE_API_KEY:
+        # Build a user content string that includes the name so Claude can use it
+        name_context = f"[The user's name is {name.strip()}. Use their name naturally in your reply.]\n\n" if name and name.strip() else ""
+        user_content = f"{name_context}{message}"
+
+        payload: Dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": 700,
+            "system": SYSTEM_PROMPT,
+            "messages": [{"role": "user", "content": user_content}],
+        }
+
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+
+        async with httpx.AsyncClient(timeout=25) as client:
+            response = await client.post(self.base_url, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        content_blocks = data.get("content", [])
+        text = ""
+        for block in content_blocks:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text", "")
+                break
+
+        return self._parse_json_response(text, language, name)
+
+    def _parse_json_response(self, text: str, language: str, name: str = "") -> ChatResult:
+        clean = text.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+            parsed = json.loads(clean)
+            reply = parsed.get("reply") or self._default_reply(language, name)
+            risk_level = parsed.get("risk_level") or "green"
+            hotlines = parsed.get("hotlines") or self._default_hotlines(language)
+        except json.JSONDecodeError:
+            reply = text or self._default_reply(language, name)
+            risk_level = "amber" if self._looks_urgent(text) else "green"
+            hotlines = self._default_hotlines(language)
+        return ChatResult(reply=reply, risk_level=risk_level, hotlines=hotlines)
 
-            messages = []
-            if conversation_history:
-                for turn in conversation_history[-8:]:  # keep last 4 exchanges
-                    messages.append({"role": turn["role"], "content": turn["content"]})
-            messages.append({"role": "user", "content": message})
-
-            completion = client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=1024,
-                system=SYSTEM_PROMPT,
-                messages=messages,
+    def _default_reply(self, language: str, name: str = "") -> str:
+        greeting = _build_name_greeting(name, language)
+        if language == "sw":
+            return (
+                f"Asante kwa kufikia, {greeting}na kwa ujasiri wa kuzungumza. "
+                "Niko hapa kukusaidia bila kukuhukumu. "
+                "Tafadhali niambie zaidi kuhusu unachopitia — chukua wakati wako."
             )
+        return (
+            f"Thank you for reaching out, {greeting}and for the courage it took to do so. "
+            "I'm here to listen without judgment. "
+            "Please tell me more about what's been happening — take all the time you need."
+        )
 
-            response_text = completion.content[0].text
+    def _default_hotlines(self, language: str) -> List[Dict[str, str]]:
+        return [
+            {"name": "GVRC National Hotline", "number": "1195", "type": "hotline"},
+            {"name": "Kenya Police Emergency", "number": "999", "type": "emergency"},
+        ]
 
-            # Infer risk from response content (Claude will signal in its reply)
+    def _looks_urgent(self, text: str) -> bool:
+        lower = text.lower()
+        urgent_words = ["danger", "hurt", "threat", "violence", "kill", "scared", "help", "attack"]
+        return any(word in lower for word in urgent_words)
+
+    def _stub_response(self, message: str, language: str, name: str = "") -> ChatResult:
+        """
+        Offline fallback with:
+        - Name acknowledgment
+        - Emotion-matched empathy opener
+        - Risk-appropriate guidance
+        - A gentle follow-up question at the end
+        """
+        m = message.lower()
+
+        # ── Risk keyword scoring ──────────────────────────────────────────
+        critical = ["kill", "dead", "weapon", "gun", "knife", "strangle", "rape",
+                    "attack", "murder", "blood", "choke", "stab"]
+        high     = ["hurt", "hit", "beaten", "threatened", "afraid", "scared",
+                    "danger", "trapped", "escape", "assault", "violence", "bruise"]
+        medium   = ["control", "angry", "yell", "drunk", "jealous", "follow",
+                    "isolate", "blame", "money", "shout", "humiliate", "watch"]
+
+        crit_count = sum(1 for w in critical if w in m)
+        high_count = sum(1 for w in high if w in m)
+        med_count  = sum(1 for w in medium if w in m)
+
+        # ── Shared building blocks ────────────────────────────────────────
+        greeting     = _build_name_greeting(name, language)
+        empathy_open = _get_empathy_opener(message, language)
+
+        # ── RED ───────────────────────────────────────────────────────────
+        if crit_count >= 1 or high_count >= 2:
+            risk = "red"
+
+            if language == "sw":
+                empathy_sw = empathy_open or "Ninakusikia, na ninajali usalama wako sana."
+                reply = (
+                    f"{empathy_sw} "
+                    f"{greeting}kile unachokielezea ni hatari na si kosa lako. "
+                    "Sasa hivi, usalama wako ndio muhimu zaidi. "
+                    "Ikiwa unaweza, nenda mahali salama — nyumba ya jirani, duka, au mahali penye watu. "
+                    "Piga simu 999 (polisi) au 1195 (msaada wa GBV) mara moja ikiwa uko katika hatari. "
+                    "Je, uko mahali salama sasa hivi?"
+                )
+            else:
+                empathy_en = empathy_open or "I hear you, and I'm deeply concerned about your safety right now."
+                reply = (
+                    f"{empathy_en} "
+                    f"{greeting}what you're describing is serious, and it is not your fault. "
+                    "Your safety is the most important thing right now. "
+                    "If you can, please move somewhere with other people — a neighbour's home, a shop, anywhere public. "
+                    "Call 999 (police) or 1195 (GBV hotline) immediately if you are in danger. "
+                    "Can you tell me — are you somewhere safe right now?"
+                )
+
+            hotlines = [
+                {"name": "Kenya Police Emergency", "number": "999",          "type": "emergency"},
+                {"name": "GVRC National Hotline",  "number": "1195",         "type": "hotline"},
+                {"name": "Wangu Kanja Foundation", "number": "0711 200 400", "type": "organization"},
+            ]
+
+        # ── AMBER ─────────────────────────────────────────────────────────
+        elif high_count >= 1 or med_count >= 2:
+            risk = "amber"
+
+            if language == "sw":
+                empathy_sw = empathy_open or "Nakusikia, na ninajua hii si rahisi kuzungumza."
+                reply = (
+                    f"{empathy_sw} "
+                    f"{greeting}unastahili kuishi bila woga. "
+                    "Kinachoendelea nyumbani kwako si kawaida, hata kama imekuwa ikijirudia kwa muda mrefu. "
+                    "Kuwa na mpango wa usalama kunaweza kukusaidia — kama vile mtu unayemwamini, "
+                    "mahali unaweza kwenda haraka, na nambari za dharura zilizohifadhiwa. "
+                    "Piga simu 1195 ili kuzungumza na mshauri aliyefunzwa wakati wowote. "
+                    "Je, una mtu unayemwamini ambaye unaweza kumfikia?"
+                )
+            else:
+                empathy_en = empathy_open or "I hear you, and I'm glad you felt you could share this with me."
+                reply = (
+                    f"{empathy_en} "
+                    f"{greeting}you deserve to live without fear — what you're describing is not normal, "
+                    "even if it has felt that way for a long time. "
+                    "Having a safety plan can make a real difference: a trusted person you can call, "
+                    "a place you can go quickly, and emergency numbers saved somewhere safe. "
+                    "You can also call 1195 any time to speak with a trained counselor confidentially. "
+                    "Is there someone in your life you trust enough to reach out to?"
+                )
+
+            hotlines = [
+                {"name": "GVRC National Hotline",         "number": "1195",         "type": "hotline"},
+                {"name": "Kituo cha Sheria (Legal Aid)",  "number": "0800 720 185", "type": "legal"},
+            ]
+
+        # ── GREEN ─────────────────────────────────────────────────────────
+        else:
             risk = "green"
-            if any(w in response_text.lower() for w in ["999", "112", "immediate", "emergency", "danger"]):
-                risk = "red"
-            elif any(w in response_text.lower() for w in ["0800", "shelter", "safety plan", "medical", "report"]):
-                risk = "amber"
 
-            return {"response": response_text, "risk_level": risk}
+            if language == "sw":
+                empathy_sw = empathy_open or "Asante kwa ujasiri wa kufikia — hii inahitaji moyo mkubwa."
+                reply = (
+                    f"{empathy_sw} "
+                    f"{greeting}niko hapa kukusaidia bila kukuhukumu. "
+                    "Hisia zako ni za kweli na zinastahili kusikizwa. "
+                    "Unaweza kuchunguza rasilimali, kuzungumza na mtu, au tu kushiriki zaidi — "
+                    "chochote unachohisi tayari kufanya. "
+                    "Kumbuka: wewe si peke yako, na kinachotokea si kosa lako. "
+                    "Ni nini kinachokusumbua zaidi sasa hivi?"
+                )
+            else:
+                empathy_en = empathy_open or "Thank you for reaching out — it takes real courage to take this step."
+                reply = (
+                    f"{empathy_en} "
+                    f"{greeting}I'm here to listen without any judgment. "
+                    "Your feelings are valid, and you deserve to be heard. "
+                    "We can explore support options together, or you can simply share more about what's been happening — "
+                    "there's no pressure to do anything before you're ready. "
+                    "Remember: you are not alone in this. "
+                    "What's been weighing on you most?"
+                )
 
-        except Exception as e:
-            # Fall through to stub
-            print(f"[Lifeline] Claude API error, using offline stub: {e}")
+            hotlines = [
+                {"name": "GVRC National Hotline", "number": "1195", "type": "hotline"},
+            ]
 
-    # ── Offline stub ─────────────────────────────────────────────────────
-    risk_level, response_text = match_response(message, detected_lang)
-    hotlines = build_hotlines(risk_level, detected_lang)
-    full_response = response_text + hotlines
-
-    return {"response": full_response, "risk_level": risk_level}
+        return ChatResult(reply=reply, risk_level=risk, hotlines=hotlines)
