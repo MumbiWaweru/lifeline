@@ -1,37 +1,58 @@
-import { useRisk } from '../context/RiskContext'
-import { useLanguage } from '../context/LanguageContext'
+// RiskIndicator.jsx — 4-level risk indicator with pulse animation
+import { useRisk, RISK_CONFIG } from "../context/RiskContext";
 
-function RiskIndicator() {
-  const { riskLevel } = useRisk()
-  const { t } = useLanguage()
-
-  const getRiskDisplay = (level) => {
-    const mappings = {
-      green: { label: t('riskLevels.low') || 'Low Risk', class: 'risk-low', dot: '•' },
-      amber: { label: t('riskLevels.medium') || 'Medium Risk', class: 'risk-medium', dot: '•' },
-      red: { label: t('riskLevels.high') || 'High Risk', class: 'risk-high', dot: '•' },
-      low: { label: t('riskLevels.low') || 'Low Risk', class: 'risk-low', dot: '•' },
-      medium: { label: t('riskLevels.medium') || 'Medium Risk', class: 'risk-medium', dot: '•' },
-      high: { label: t('riskLevels.high') || 'High Risk', class: 'risk-high', dot: '•' },
-    }
-    return mappings[level] || mappings.green
-  }
-
-  const display = getRiskDisplay(riskLevel)
-
-  if (!riskLevel) {
-    return (
-      <span className="risk-indicator risk-low">
-        {display.dot} {t('riskLevels.low')}
-      </span>
-    )
-  }
+export default function RiskIndicator() {
+  const { riskLevel, riskScore } = useRisk();
+  const cfg = RISK_CONFIG[riskLevel] || RISK_CONFIG.low;
 
   return (
-    <span className={`risk-indicator ${display.class}`}>
-      {display.dot} {display.label}
-    </span>
-  )
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      background: cfg.bg,
+      border: `1.5px solid ${cfg.border}`,
+      borderRadius: 20,
+      padding: "5px 14px",
+      fontSize: 13,
+      fontWeight: 600,
+      color: cfg.color,
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Pulse ring for high/critical */}
+      {cfg.pulse && (
+        <span style={{
+          display: "inline-block",
+          width: 10,
+          height: 10,
+          borderRadius: "50%",
+          background: cfg.border,
+          animation: "pulseRing 1.2s ease-out infinite",
+          flexShrink: 0,
+        }} />
+      )}
+      {!cfg.pulse && (
+        <span style={{
+          display: "inline-block",
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: cfg.border,
+          flexShrink: 0,
+        }} />
+      )}
+      <span>{cfg.label}</span>
+      {riskScore > 0 && (
+        <span style={{
+          fontSize: 11,
+          fontWeight: 400,
+          opacity: 0.75,
+          marginLeft: 2,
+        }}>
+          {Math.round(riskScore * 100)}%
+        </span>
+      )}
+    </div>
+  );
 }
-
-export default RiskIndicator

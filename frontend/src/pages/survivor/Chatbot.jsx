@@ -220,13 +220,15 @@ function Chatbot() {
 
     try {
       const res = await chatApi.sendMessage({ message: text, language, sessionId })
+      console.log('✅ Backend response:', res)
       setRiskLevel(res.risk_level)
       setMessages(prev => [...prev, {
         id: Date.now() + 1, text: res.reply, isUser: false, ts: new Date(),
         hotlines: res.hotlines, riskLevel: res.risk_level,
       }])
     } catch (err) {
-      console.warn('Backend unavailable, using offline mode:', err.message)
+      console.error('❌ Backend API error:', err)
+      console.error('Error details:', err.message, err.stack)
       const offline = buildOfflineReply(text, historySnapshot, language, '', riskLevel)
       setRiskLevel(offline.risk)
       setMessages(prev => [...prev, {
