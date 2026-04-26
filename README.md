@@ -1,263 +1,93 @@
-# Lifeline - GBV Support Application
+# Lifeline
 
-A confidential support application for Gender-Based Violence (GBV) survivors, providing anonymous chatbot assistance and local resource connections.
-
-## Project Overview
-
-**Lifeline** is a final year project that provides:
-- **Anonymous support** for survivors without requiring account creation
-- **AI-powered chatbot** that assesses risk levels and provides guidance
-- **Local resource directory** with hotlines, shelters, organizations, and police contacts
-- **Admin dashboard** for monitoring conversations and managing resources
-- **Multi-language support** (English & Swahili)
-- **Quick exit button** for user safety
-- **Counsellor matching** for personalized support
+Monorepo for the Lifeline GBV support app.
 
 ## Tech Stack
-
-- **Frontend:** React 18 + Vite
-- **Backend:** FastAPI (Python) + SQLAlchemy
-- **Styling:** Bootstrap 5 + Custom CSS with glassmorphism design
-- **Routing:** React Router v6
-- **State Management:** React Context API
-- **Database:** SQLite (dev) / PostgreSQL (production)
-- **AI:** Enhanced rule-based stub (with Claude API integration ready)
+- Frontend: React + Vite
+- Backend: FastAPI + SQLAlchemy (async)
+- Default DB: SQLite (`backend/app.db`)
+- LLM provider: OpenRouter (`openai/gpt-oss-120b:free` by default)
 
 ## Project Structure
-
-```
+```text
 lifeline/
-├── frontend/                    # Frontend React application
-│   ├── src/
-│   │   ├── components/          # Reusable components
-│   │   │   ├── GlobalHeader.jsx    # Header with quick exit, language toggle, risk indicator
-│   │   │   ├── LanguageToggle.jsx
-│   │   │   └── RiskIndicator.jsx
-│   │   ├── context/             # React Context providers
-│   │   │   ├── LanguageContext.jsx  # Multi-language support
-│   │   │   └── RiskContext.jsx      # Risk assessment logic
-│   │   ├── pages/
-│   │   │   ├── survivor/        # Survivor flow pages
-│   │   │   │   ├── AnonymousEntry.jsx
-│   │   │   │   ├── Chatbot.jsx
-│   │   │   │   ├── Results.jsx
-│   │   │   │   ├── Resources.jsx
-│   │   │   │   └── Counsellors.jsx       # NEW: View & request counsellors
-│   │   │   ├── admin/           # Admin flow pages
-│   │   │   │   ├── AdminLogin.jsx
-│   │   │   │   ├── Dashboard.jsx
-│   │   │   │   ├── ConversationViewer.jsx
-│   │   │   │   ├── ResourceManager.jsx
-│   │   │   │   ├── Alerts.jsx              # NEW: View high-risk alerts
-│   │   │   │   └── CounsellorManagement.jsx # NEW: Manage counsellors
-│   │   │   └── Landing.jsx
-│   │   ├── services/
-│   │   │   └── api.js           # API service for backend integration
-│   │   ├── config.js            # App configuration
-│   │   ├── App.jsx              # Main app with routing
-│   │   ├── main.jsx             # Entry point
-│   │   └── index.css            # Global styles
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── .env.example
-│
-├── backend/                     # Backend FastAPI application
-│   ├── app/
-│   │   ├── models.py            # Database models
-│   │   ├── schemas.py           # Pydantic schemas
-│   │   ├── routes/              # API routes
-│   │   │   ├── chat.py
-│   │   │   ├── resources.py
-│   │   │   ├── admin.py
-│   │   │   └── counsellors.py   # NEW: Counsellor endpoints
-│   │   ├── services/
-│   │   │   ├── claude.py        # AI client with enhanced stub
-│   │   │   └── phi2.py          # Optional local LLM
-│   │   └── main.py
-│   ├── requirements.txt
-│   └── README.md
-└── README.md
+├── frontend/
+└── backend/
 ```
 
-## User Flows
+## Prerequisites
+- Node.js 18+
+- Python 3.11+ (3.14 also works)
 
-### Survivor Flow
-1. **Landing Page** → Choose "I Need Help"
-2. **Anonymous Entry** → No account required
-3. **Chatbot** → Describe situation, AI assesses risk
-4. **Results** → Get safety tips based on risk level
-5. **Resources** → View local support services
-6. **Counsellors** → Browse and request counsellor support (NEW)
-
-### Admin Flow
-1. **Landing Page** → Choose "Admin Login"
-2. **Login** → Password protected (default: `changeme`)
-3. **Dashboard** → View statistics, flagged cases, and alerts
-4. **Conversation Viewer** → Review flagged cases with filters
-5. **Alerts** → View high-risk incidents requiring attention (NEW)
-6. **Counsellor Management** → Add/remove counsellors, manage requests (NEW)
-7. **Resource Manager** → Add/edit support resources
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+ (for frontend)
-- Python 3.11+ (for backend)
-
-### Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Create .env file (copy from .env.example)
-cp .env.example .env
-
-# Start development server (with backend proxy)
-npm run dev
-
-# Build for production (outputs to backend/static)
-npm run build
-```
-
-### Backend Setup
-
+## Backend Setup
 ```bash
 cd backend
-
-# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
+source .venv/bin/activate
 pip install -r requirements.txt
+```
 
-# Create .env file with configuration
+Create `backend/.env`:
+```bash
 cat > .env <<'EOF'
+APP_NAME=GBV Support API
+ENVIRONMENT=development
+OPENROUTER_API_KEY=your_openrouter_key
+OPENROUTER_MODEL=openai/gpt-oss-120b:free
 DATABASE_URL=sqlite+aiosqlite:///./app.db
 ADMIN_PASSWORD=changeme
 ADMIN_TOKEN=demo-admin-token
-CLAUDE_API_KEY=
-CLAUDE_MODEL=claude-3-sonnet-20240229
 ALLOWED_ORIGINS=*
-ENVIRONMENT=development
 EOF
-
-# Start backend server
-uvicorn app.main:app --reload
 ```
 
-Backend will be available at `http://localhost:8000`
-Backend API docs at `http://localhost:8000/docs`
+Run backend:
+```bash
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
 
-## Features
+Backend URLs:
+- API: `http://127.0.0.1:8000`
+- Docs: `http://127.0.0.1:8000/docs`
 
-### Global Features (Available on Every Screen)
-- **Quick Exit Button** - Immediately redirects to Google for user safety
-- **Language Toggle** - Switch between English and Swahili
-- **Risk Indicator** - Shows current risk level (Green/Amber/Red)
+## Frontend Setup
+```bash
+cd frontend
+npm install
+```
 
-### Survivor Features
-- Anonymous, no-account-required entry
-- AI-powered risk assessment with conversation memory
-- Personalized safety tips based on risk level
-- Location-filtered resource directory
-- Emergency contact quick-dial
-- **Browse and request counsellors** (NEW)
+Run frontend (default backend URL is `http://localhost:8000`):
+```bash
+npm run dev
+```
 
-### Admin Features
-- Password-protected access with bearer token authentication
-- Dashboard with conversation statistics
-- **Flagged conversations filter** (NEW)
-- **High-risk alerts viewer** (NEW)
-- Conversation viewer with full message history
-- **Counsellor management** (CRUD + request handling) (NEW)
-- Full CRUD for resource management
+If backend runs on a different port (example `8001`), run:
+```bash
+VITE_API_URL=http://127.0.0.1:8001 npm run dev -- --host 127.0.0.1 --port 5173
+```
 
-## API Integration
+Frontend URL:
+- App: `http://127.0.0.1:5173`
 
-The frontend is **fully integrated** with the backend API. Here's how they connect:
+## Run Both (Quick Start)
+Terminal 1:
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
 
-### Frontend → Backend Endpoints
+Terminal 2:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-| Frontend Service | Backend Endpoint | Description |
-|-----------------|------------------|-------------|
-| `chatApi.sendMessage()` | `POST /chat` | Send message, get AI response + risk level |
-| `resourcesApi.getByLocation()` | `GET /resources?location=&language=` | Fetch resources by location |
-| `adminApi.login()` | `POST /admin/login` | Admin authentication |
-| `adminApi.getConversations()` | `GET /admin/conversations` | Get conversations (with flagged filter) |
-| `adminApi.getStats()` | `GET /admin/stats` | Get dashboard statistics (includes flagged, alerts) |
-| `adminApi.getAlerts()` | `GET /admin/alerts` | Get high-risk alerts |
-| `counsellorsApi.getAll()` | `GET /counsellors/` | List available counsellors |
-| `counsellorsApi.requestCounsellor()` | `POST /counsellors/request` | Request a counsellor |
-| `counsellorsApi.getAllCounsellors()` | `GET /counsellors/admin/counsellors` | Admin: list all counsellors |
-| `counsellorsApi.createCounsellor()` | `POST /counsellors/admin/counsellors` | Admin: create counsellor |
-| `counsellorsApi.deleteCounsellor()` | `DELETE /counsellors/admin/counsellors/{id}` | Admin: delete counsellor |
-| `counsellorsApi.getAllRequests()` | `GET /counsellors/admin/requests` | Admin: list requests |
-| `counsellorsApi.updateRequestStatus()` | `PATCH /counsellors/admin/requests/{id}` | Admin: update request status |
-| `healthApi.check()` | `GET /health` | Health check endpoint |
-
-### Backend Data Models
-
-The backend uses these models (defined in `backend/app/models.py`):
-- **Conversation**: Stores session info, risk level, language, flagged status
-- **Message**: Individual messages linked to conversations
-- **Resource**: Support resources (hotlines, shelters, organizations)
-- **Alert**: High-risk incident records with message previews (NEW)
-- **Counsellor**: Counsellor profiles (NEW)
-- **CounsellorRequest**: Requests linking survivors to counsellors (NEW)
-
-### Risk Level Mapping
-
-Backend uses: `green`, `amber`, `red`
-Frontend displays with appropriate colors and icons
-
-### AI Engine
-
-The backend uses an **enhanced rule-based stub** by default (no external API calls needed):
-- Keyword-based risk scoring (high/medium risk terms)
-- Sentiment analysis via TextBlob
-- Conversation memory (rolling 4 exchanges)
-- Bilingual responses (English/Swahili)
-- Always returns hotlines and supportive replies
-
-To enable real Claude API:
-1. Get API key from Anthropic
-2. Add to backend `.env`: `CLAUDE_API_KEY=your_key`
-
-## Running Both Services
-
-### Option 1: Separate Servers (Development)
-
-1. **Start backend** (in one terminal):
-   ```bash
-   cd backend
-   uvicorn app.main:app --reload
-   ```
-
-2. **Start frontend** (in another terminal):
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-3. **Access the app**:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - Backend Docs: http://localhost:8000/docs
-
-The frontend Vite dev server proxies `/api` requests to the backend automatically.
-
-### Option 2: Production Build
-
-1. **Build frontend** (outputs to `backend/static`):
-   ```bash
-   cd frontend
-   npm run build
-   ```
+## Notes
+- Chat falls back to heuristic responses if OpenRouter key is missing or provider request fails/rate-limits.
+- Admin auth is static token/password for demo usage.
+- Backend details are documented in [backend/README.md](backend/README.md).
 
 2. **Start backend** (serves frontend from static):
    ```bash

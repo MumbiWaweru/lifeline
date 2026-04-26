@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
 	# Chat provider (OpenRouter free tier model)
 	openrouter_api_key: str | None = None
-	openrouter_model: str = "qwen/qwen3-32b:free"
+	openrouter_model: str = "openai/gpt-oss-120b:free"
 
 	# Database (SQLite by default for easy setup; override with Postgres if needed)
 	database_url: str = "sqlite+aiosqlite:///./app.db"

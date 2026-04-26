@@ -1,33 +1,56 @@
-# GBV Support API (FastAPI demo)
+# Lifeline Backend (FastAPI)
 
-This is a demo backend for the GBV Support and Risk Assessment platform. It wires FastAPI, SQLite (by default) or PostgreSQL (optional), and an OpenRouter integration for risk assessment.
+FastAPI backend for the Lifeline GBV support project.
 
-## Quick start
-1. Create a virtualenv and install deps:
+## Stack
+- FastAPI
+- SQLAlchemy (async)
+- SQLite by default (`app.db`)
+- OpenRouter chat provider (default model: `openai/gpt-oss-120b:free`)
+
+## Quick Start
+1. Create and activate a virtual environment:
    ```bash
    cd backend
-   python -m venv .venv && source .venv/bin/activate
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+2. Install dependencies:
+   ```bash
    pip install -r requirements.txt
    ```
-2. Configure environment (optional overrides):
+3. Create `.env`:
    ```bash
    cat > .env <<'EOF'
+   APP_NAME=GBV Support API
+   ENVIRONMENT=development
+   OPENROUTER_API_KEY=your_openrouter_key
+   OPENROUTER_MODEL=openai/gpt-oss-120b:free
    DATABASE_URL=sqlite+aiosqlite:///./app.db
-   OPENROUTER_API_KEY=your_key_here
-   OPENROUTER_MODEL=qwen/qwen3-32b:free
    ADMIN_PASSWORD=changeme
    ADMIN_TOKEN=demo-admin-token
    ALLOWED_ORIGINS=*
    EOF
    ```
-   - If `OPENROUTER_API_KEY` is missing, the app falls back to a stubbed response so the demo still works.
-3. Run the server:
+4. Run:
    ```bash
    uvicorn app.main:app --reload
    ```
-4. Visit interactive docs at http://localhost:8000/docs.
+
+Backend runs at `http://localhost:8000` and docs at `http://localhost:8000/docs`.
+
+## API Endpoints
+- `GET /health`
+- `POST /chat`
+- `GET /resources`
+- `POST /admin/login`
+- `GET /admin/stats`
+- `GET /admin/conversations`
+
+## Chat Provider Behavior
+- Backend sends chat generation requests to OpenRouter using `OPENROUTER_API_KEY`.
+- If key is missing or provider request fails (e.g. rate limits), backend returns heuristic fallback responses to preserve API availability.
 
 ## Notes
-- Startup creates tables and seeds a few Kenya resources if empty.
-- Admin login uses a static password/token pair from env. Replace for your demo.
-- This is a university demo: do not ship to production without hardening auth, storage, logging, and prompt safety.
+- On startup, tables are created and initial resources are seeded if DB is empty.
+- Admin auth is static-token based for demo/dev only; harden before production.
