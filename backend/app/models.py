@@ -1,108 +1,99 @@
 """
-models.py — LIFELINE Database Models (Updated)
-- 4-level risk classification (low/medium/high/critical)
-- iv column on messages for AES-256-GCM encryption
-- risk_score and explanation columns on alerts
-- flagged column on conversations
+main.py — LIFELINE FastAPI application entry point
+Integrates: Socket.io (real-time), all routers, rate limiting, CORS, SlowAPI.
 """
 
-import uuid
-from datetime import datetime, timezone
-from sqlalchemy import (
-    Column, String, Text, Boolean, Float,
-    ForeignKey, DateTime, JSON, Integer
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import socketio
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+from database import engine, Base
+from backend.app.websocket import sio, rest_router as messages_router
+from auth import router as auth_router
+from risk_engine import router as risk_router
+from resources import router as resources_router
+from admin import router as admin_router
+from chat import router as chat_router
+
+# ─── Rate limiter ──────────────────────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address)
+
+# ─── App lifespan ─────────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create all DB tables on startup (dev only; use Alembic in production)
+    Base.metadata.create_all(bind=engine)
+    yield
+
+# ─── FastAPI app ───────────────────────────────────────────────────────────────
+app = FastAPI(
+    title="LIFELINE API",
+    description="AI-Powered GBV Support and Risk Assessment Platform",
+    version="2.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
-from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.sqlite import JSON as SQLITE_JSON
 
-from app.database import Base
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# ─── CORS ─────────────────────────────────────────────────────────────────────
+allowed_origins = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:3000"
+).split(",")
 
-def utcnow():
-    return datetime.now(timezone.utc)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
+# ─── Security headers middleware ───────────────────────────────────────────────
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"]  = "nosniff"
+    response.headers["X-Frame-Options"]         = "DENY"
+    response.headers["X-XSS-Protection"]        = "1; mode=block"
+    response.headers["Referrer-Policy"]         = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"]      = "camera=(), microphone=(), geolocation=(self)"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self' wss:;"
+    )
+    return response
 
-# ── Conversations ──────────────────────────────────────────────────────────────
-class Conversation(Base):
-    __tablename__ = "conversations"
+# ─── Routers ───────────────────────────────────────────────────────────────────
+app.include_router(auth_router)
+app.include_router(risk_router)
+app.include_router(resources_router)
+app.include_router(messages_router)
+app.include_router(admin_router)
+app.include_router(chat_router)
 
-    id         = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String(64), unique=True, nullable=False, index=True)
-    language   = Column(String(4),  default="en")
-    risk_level = Column(String(10), default="low")    # low | medium | high | critical
-    flagged    = Column(Boolean,    default=False)     # True for high/critical
-    created_at = Column(DateTime,   default=utcnow)
+# ─── Health check ──────────────────────────────────────────────────────────────
+@app.get("/health", tags=["System"])
+@limiter.limit("60/minute")
+async def health(request: Request):
+    return {"status": "healthy", "version": "2.0.0"}
 
-    messages   = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
+# ─── Mount Socket.io as ASGI sub-app ──────────────────────────────────────────
+# Socket.io runs on /socket.io/* — compatible with socket.io client v4
+socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 
-
-# ── Messages ───────────────────────────────────────────────────────────────────
-class Message(Base):
-    __tablename__ = "messages"
-
-    id              = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    conversation_id = Column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
-    sender          = Column(String(16), nullable=False)     # "user" | "assistant"
-    content         = Column(Text,       nullable=False)     # AES-256-GCM encrypted (base64)
-    iv              = Column(String(32), nullable=True)      # GCM nonce (base64) — null = unencrypted legacy
-    created_at      = Column(DateTime,   default=utcnow)
-
-    conversation    = relationship("Conversation", back_populates="messages")
-
-
-# ── Resources ──────────────────────────────────────────────────────────────────
-class Resource(Base):
-    __tablename__ = "resources"
-
-    id         = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name       = Column(String(255), nullable=False)
-    number     = Column(String(64),  nullable=False)
-    type       = Column(String(64),  nullable=False)     # hotline | shelter | legal | organization
-    location   = Column(String(128), nullable=False, index=True)
-    language   = Column(String(4),   default="en")
-    latitude   = Column(Float,       nullable=True)      # for distance estimation
-    longitude  = Column(Float,       nullable=True)
-    created_at = Column(DateTime,    default=utcnow)
-
-    __table_args__ = {"sqlite_autoincrement": False}
-
-
-# ── Alerts ─────────────────────────────────────────────────────────────────────
-class Alert(Base):
-    __tablename__ = "alerts"
-
-    id              = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id      = Column(String(64), nullable=False, index=True)
-    risk_level      = Column(String(10), nullable=False)     # high | critical
-    risk_score      = Column(Float,      nullable=True)      # 0.0-1.0
-    message_preview = Column(String(200), nullable=True)     # first 200 chars, PII-redacted
-    explanation     = Column(SQLITE_JSON, nullable=True)     # LIME explanation list
-    acknowledged    = Column(Boolean,     default=False)
-    created_at      = Column(DateTime,    default=utcnow)
-
-
-# ── Counsellors ────────────────────────────────────────────────────────────────
-class Counsellor(Base):
-    __tablename__ = "counsellors"
-
-    id             = Column(String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
-    name           = Column(String(200), nullable=False)
-    specialization = Column(String(200), nullable=True)
-    organization   = Column(String(200), nullable=True)
-    is_available   = Column(Boolean,     default=True)
-    created_at     = Column(DateTime,    default=utcnow)
-
-    requests       = relationship("CounsellorRequest", back_populates="counsellor", cascade="all, delete-orphan")
-
-
-# ── Counsellor Requests ────────────────────────────────────────────────────────
-class CounsellorRequest(Base):
-    __tablename__ = "counsellor_requests"
-
-    id             = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id     = Column(String(64), nullable=False, index=True)
-    counsellor_id  = Column(String(36), ForeignKey("counsellors.id", ondelete="CASCADE"), nullable=False)
-    status         = Column(String(20), default="pending")   # pending | accepted | closed
-    created_at     = Column(DateTime,  default=utcnow)
-
-    counsellor     = relationship("Counsellor", back_populates="requests")
+# ─── Entry point ──────────────────────────────────────────────────────────────
+# Run with: uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload
